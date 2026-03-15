@@ -184,11 +184,13 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const workArea = primaryDisplay.workArea;
 
+  const initialWidth = store.get('window-width') || 600;
+
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
-    width: 840,
+    width: initialWidth,
     height: 600,
-    minWidth: 400,
+    minWidth: 300,
     minHeight: 400,
     title: 'Side Browser',
     frame: false,
@@ -208,9 +210,9 @@ function createWindow() {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   win.setBounds({
-    x: workArea.x + workArea.width - 840,
+    x: workArea.x + workArea.width - initialWidth,
     y: workArea.y + Math.floor((workArea.height - 600) / 2),
-    width: 840,
+    width: initialWidth,
     height: 600
   });
 
@@ -283,11 +285,13 @@ app.whenReady().then(async () => {
     template: {
       transparency: 0.8,
       adblockEnabled: true,
+      'window-width': 600,
     }
   } as any);
 
   if (store.get('transparency') === undefined) store.set('transparency', 0.8);
   if (store.get('adblockEnabled') === undefined) store.set('adblockEnabled', true);
+  if (store.get('window-width') === undefined) store.set('window-width', 600);
 
   await setupAdblocker();
   
@@ -344,4 +348,36 @@ ipcMain.on('set-auto-snap', (_event, enabled) => {
   if (enabled && win) {
     win.emit('moved'); 
   }
+});
+
+ipcMain.on('window-resize', (_event, deltaX) => {
+  if (!win) return;
+  const bounds = win.getBounds();
+  const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+  const workArea = display.workArea;
+
+  let newWidth = bounds.width;
+  if (currentSnapSide === 'right') {
+    // Resizing from the left edge of the window
+    newWidth = bounds.width - deltaX;
+  } else if (currentSnapSide === 'left') {
+    // Resizing from the right edge of the window
+    newWidth = bounds.width + deltaX;
+  }
+
+  // Enforce min/max width
+  newWidth = Math.max(300, Math.min(newWidth, workArea.width - 100));
+
+  if (currentSnapSide === 'right') {
+    win.setBounds({
+      x: workArea.x + workArea.width - newWidth,
+      width: newWidth
+    });
+  } else {
+    win.setBounds({
+      width: newWidth
+    });
+  }
+
+  store.set('window-width', newWidth);
 });

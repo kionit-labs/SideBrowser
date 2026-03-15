@@ -1,11 +1,4 @@
-//#region electron/webview-preload.ts
-window.addEventListener("load", () => {
-	addCustomScrollbarStyle();
-});
-function addCustomScrollbarStyle() {
-	const style = document.createElement("style");
-	style.id = "slide-browser-custom-scrollbar";
-	style.innerHTML = `
+window.addEventListener(`load`,()=>{e()});function e(){let e=document.createElement(`style`);e.id=`slide-browser-custom-scrollbar`,e.innerHTML=`
     ::-webkit-scrollbar {
       width: 10px !important;
       height: 10px !important;
@@ -23,7 +16,4 @@ function addCustomScrollbarStyle() {
     ::-webkit-scrollbar-thumb:hover {
       background-color: rgba(120, 120, 120, 0.7) !important;
     }
-  `;
-	document.head.appendChild(style);
-}
-//#endregion
+  `,document.head.appendChild(e)}

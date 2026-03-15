@@ -1,14 +1,1 @@
-let electron = require("electron");
-//#region electron/preload.ts
-electron.contextBridge.exposeInMainWorld("electronAPI", {
-	onWindowBlur: (callback) => electron.ipcRenderer.on("window-blur", (_event, side) => callback(side)),
-	onWindowFocus: (callback) => electron.ipcRenderer.on("window-focus", () => callback()),
-	sendMouseEnter: () => electron.ipcRenderer.send("window-mouse-enter"),
-	getStoreValue: (key) => electron.ipcRenderer.invoke("get-store-val", key),
-	setStoreValue: (key, value) => electron.ipcRenderer.send("set-store-val", key, value),
-	getPreloadPath: () => electron.ipcRenderer.invoke("get-preload-path"),
-	hideWindow: () => electron.ipcRenderer.send("hide-window"),
-	setAutoHide: (enabled) => electron.ipcRenderer.send("set-auto-hide", enabled),
-	setAutoSnap: (enabled) => electron.ipcRenderer.send("set-auto-snap", enabled)
-});
-//#endregion
+let e=require(`electron`);e.contextBridge.exposeInMainWorld(`electronAPI`,{onWindowBlur:t=>e.ipcRenderer.on(`window-blur`,(e,n)=>t(n)),onWindowFocus:t=>e.ipcRenderer.on(`window-focus`,()=>t()),sendMouseEnter:()=>e.ipcRenderer.send(`window-mouse-enter`),getStoreValue:t=>e.ipcRenderer.invoke(`get-store-val`,t),setStoreValue:(t,n)=>e.ipcRenderer.send(`set-store-val`,t,n),getPreloadPath:()=>e.ipcRenderer.invoke(`get-preload-path`),hideWindow:()=>e.ipcRenderer.send(`hide-window`),setAutoHide:t=>e.ipcRenderer.send(`set-auto-hide`,t),setAutoSnap:t=>e.ipcRenderer.send(`set-auto-snap`,t),resizeWindow:t=>e.ipcRenderer.send(`window-resize`,t)});

@@ -33,6 +33,8 @@ export default function App() {
   const [isAutoEdgeSnapping, setIsAutoEdgeSnapping] = useState(true);
   const [isGlobalMuted, setIsGlobalMuted] = useState(false);
   const [isAutoHideLossFocus, setIsAutoHideLossFocus] = useState(true);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef(0);
 
   const browserRefs = useRef<Record<string, BrowserRef>>({});
 
@@ -73,16 +75,36 @@ export default function App() {
       (window as any).electronAPI.onWindowBlur(blurHandler);
       (window as any).electronAPI.onWindowFocus(focusHandler);
 
+      const handleMouseMove = (e: MouseEvent) => {
+        if (isResizing) {
+          const deltaX = e.screenX - resizeStartX.current;
+          resizeStartX.current = e.screenX;
+          if ((window as any).electronAPI.resizeWindow) {
+            (window as any).electronAPI.resizeWindow(deltaX);
+          }
+        }
+      };
+
+      const handleMouseUp = () => {
+        setIsResizing(false);
+        document.body.style.cursor = 'default';
+      };
+
+      if (isResizing) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+      }
+
       return () => {
-        // We assume the electronAPI has a way to remove listeners, or we just trust the HMR cleanup
-        // Since we are using .on(), we should ideally have .off()
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
         if ((window as any).electronAPI.removeAllListeners) {
           (window as any).electronAPI.removeAllListeners('window-blur');
           (window as any).electronAPI.removeAllListeners('window-focus');
         }
       };
     }
-  }, []);
+  }, [isResizing]);
 
   const handleNavigate = (rawUrl: string) => {
     let url = rawUrl;
@@ -142,6 +164,17 @@ export default function App() {
       }}
     >
       <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
+
+      {/* Resize Handle - Positioned on the inner edge (opposite of snap side) */}
+      <div 
+        className={`absolute top-0 bottom-0 w-1.5 z-[100] cursor-ew-resize transition-colors hover:bg-blue-500/30 ${slideSide === 'left' ? 'right-0' : 'left-0'}`}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsResizing(true);
+          resizeStartX.current = e.screenX;
+          document.body.style.cursor = 'ew-resize';
+        }}
+      />
 
       {/* Main Content Area (Left side) */}
       <div 
