@@ -10,5 +10,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hideWindow: () => ipcRenderer.send('hide-window'),
   setAutoHide: (enabled: boolean) => ipcRenderer.send('set-auto-hide', enabled),
   setAutoSnap: (enabled: boolean) => ipcRenderer.send('set-auto-snap', enabled),
-  resizeWindow: (deltaX: number) => ipcRenderer.send('window-resize', deltaX),
+  resizeWindow: (deltas: { deltaX: number; deltaY: number }) => ipcRenderer.send('window-resize', deltas),
 });

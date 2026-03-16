@@ -35,6 +35,7 @@ export default function App() {
   const [isAutoHideLossFocus, setIsAutoHideLossFocus] = useState(true);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartX = useRef(0);
+  const resizeStartY = useRef(0);
 
   const browserRefs = useRef<Record<string, BrowserRef>>({});
 
@@ -78,9 +79,11 @@ export default function App() {
       const handleMouseMove = (e: MouseEvent) => {
         if (isResizing) {
           const deltaX = e.screenX - resizeStartX.current;
+          const deltaY = e.screenY - resizeStartY.current;
           resizeStartX.current = e.screenX;
+          resizeStartY.current = e.screenY;
           if ((window as any).electronAPI.resizeWindow) {
-            (window as any).electronAPI.resizeWindow(deltaX);
+            (window as any).electronAPI.resizeWindow({ deltaX, deltaY });
           }
         }
       };
@@ -165,16 +168,64 @@ export default function App() {
     >
       <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
 
-      {/* Resize Handle - Positioned on the inner edge (opposite of snap side) */}
-      <div 
-        className={`absolute top-0 bottom-0 w-1.5 z-[100] cursor-ew-resize transition-colors hover:bg-blue-500/30 ${slideSide === 'left' ? 'right-0' : 'left-0'}`}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setIsResizing(true);
-          resizeStartX.current = e.screenX;
-          document.body.style.cursor = 'ew-resize';
-        }}
-      />
+      {/* Resize Capture Overlay - Prevents webview from stealing events during resize */}
+      {isResizing && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-transparent cursor-ew-resize"
+          style={{ cursor: document.body.style.cursor }} 
+        />
+      )}
+
+      {/* Resize Hotspots */}
+      <div className="absolute inset-0 pointer-events-none z-[100]">
+        {/* Main Edge Handle */}
+        <div 
+          className={`absolute top-0 bottom-0 w-2 pointer-events-auto cursor-ew-resize transition-colors ${slideSide === 'left' ? 'right-0' : 'left-0'}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+            resizeStartX.current = e.screenX;
+            resizeStartY.current = e.screenY;
+            document.body.style.cursor = 'ew-resize';
+          }}
+        />
+
+        {/* Bottom Edge Handle */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-2 pointer-events-auto cursor-ns-resize transition-colors"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+            resizeStartX.current = e.screenX;
+            resizeStartY.current = e.screenY;
+            document.body.style.cursor = 'ns-resize';
+          }}
+        />
+
+        {/* Corner Handle (Inner Bottom Corner) */}
+        <div 
+          className={`absolute bottom-0 w-5 h-5 pointer-events-auto transition-colors ${slideSide === 'left' ? 'right-0 cursor-se-resize' : 'left-0 cursor-sw-resize'}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+            resizeStartX.current = e.screenX;
+            resizeStartY.current = e.screenY;
+            document.body.style.cursor = slideSide === 'left' ? 'se-resize' : 'sw-resize';
+          }}
+        />
+
+        {/* Corner Handle (Top Corner) */}
+        <div 
+          className={`absolute top-0 w-5 h-5 pointer-events-auto transition-colors ${slideSide === 'left' ? 'right-0 cursor-ne-resize' : 'left-0 cursor-nw-resize'}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+            resizeStartX.current = e.screenX;
+            resizeStartY.current = e.screenY;
+            document.body.style.cursor = slideSide === 'left' ? 'ne-resize' : 'nw-resize';
+          }}
+        />
+      </div>
 
       {/* Main Content Area (Left side) */}
       <div 

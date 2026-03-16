@@ -99,7 +99,7 @@ export default function Settings({ transparency, setTransparency }: SettingsProp
 
           <div className="flex flex-col">
             {activeTab === 'General' && (
-              <div className="flex flex-col">
+              <div className="flex flex-col animate-in fade-in duration-300">
                 <SelectItem label="Language" options={['English', 'Turkish', 'French']} />
                 <SelectItem label="Theme Color" options={['Default', 'Light', 'Dark']} />
                 <SelectItem label="Dark Mode" options={['System', 'Always On', 'Always Off']} />
@@ -130,32 +130,52 @@ export default function Settings({ transparency, setTransparency }: SettingsProp
                   subtitle="Automatically fill in login forms when password management is enabled" 
                   enabled={false} 
                 />
+              </div>
+            )}
+
+            {activeTab === 'Window' && (
+              <div className="flex flex-col animate-in fade-in duration-300">
+                <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-[15px] font-semibold text-zinc-100">Window Transparency</h3>
+                      <p className="text-[13px] text-zinc-500 mt-1">Adjusts the desktop transparency effect behind the UI.</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                       <span className="text-xs font-mono text-zinc-400">{Math.round(transparency * 100)}%</span>
+                       <input 
+                        type="range" 
+                        min="0.3" 
+                        max="1.0" 
+                        step="0.05" 
+                        value={transparency} 
+                        onChange={handleTransparencyChange}
+                        className="w-32 accent-[#3b5270] bg-zinc-800 h-1.5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#6185b3] [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <ToggleItem 
+                  label="Always On Top" 
+                  subtitle="Keep the browser window above all other applications" 
+                  enabled={true} 
+                />
                 <ToggleItem 
                   label="Automatically Center Window" 
                   subtitle="When enabled, the window will always be positioned in the vertical center of the screen." 
                   enabled={true} 
                 />
-
-                <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[15px] font-semibold text-zinc-100 mb-2">Window Transparency: {Math.round(transparency * 100)}%</h3>
-                    <input 
-                      type="range" 
-                      min="0.3" 
-                      max="1.0" 
-                      step="0.05" 
-                      value={transparency} 
-                      onChange={handleTransparencyChange}
-                      className="w-32 accent-[#3b5270] bg-zinc-800 h-1.5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#6185b3] [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-[13px] text-zinc-500 mt-1">Adjusts the desktop transparency effect behind the UI.</p>
-                </div>
+                <SelectItem 
+                  label="Default Snap Side" 
+                  options={['Right', 'Left']} 
+                  subtitle="Which side of the screen the browser should stick to by default"
+                />
               </div>
             )}
 
-            {activeTab !== 'General' && (
-              <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+            {(activeTab === 'Updates' || activeTab === 'Shortcuts') && (
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-500 animate-in fade-in duration-300">
                 <p className="text-sm">This section is currently under development.</p>
               </div>
             )}

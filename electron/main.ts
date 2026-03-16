@@ -327,6 +327,9 @@ ipcMain.handle('get-preload-path', () => path.join(__dirname, 'webview-preload.j
 ipcMain.handle('get-store-val', (_event, key) => store ? store.get(key) : undefined);
 ipcMain.on('set-store-val', (_event, key, val) => {
   if (store) store.set(key, val);
+  if (key === 'transparency' && win) {
+    win.setOpacity(val);
+  }
   if (key === 'adblockEnabled') {
     if (val) blocker?.enableBlockingInSession(session.defaultSession);
     else blocker?.disableBlockingInSession(session.defaultSession);
@@ -350,34 +353,44 @@ ipcMain.on('set-auto-snap', (_event, enabled) => {
   }
 });
 
-ipcMain.on('window-resize', (_event, deltaX) => {
+ipcMain.on('window-resize', (_event, { deltaX, deltaY }) => {
   if (!win) return;
   const bounds = win.getBounds();
   const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
   const workArea = display.workArea;
 
   let newWidth = bounds.width;
+  let newHeight = bounds.height;
+  let newX = bounds.x;
+  let newY = bounds.y;
+
+  // Horizontal Resize
   if (currentSnapSide === 'right') {
-    // Resizing from the left edge of the window
     newWidth = bounds.width - deltaX;
+    newX = workArea.x + workArea.width - newWidth;
   } else if (currentSnapSide === 'left') {
-    // Resizing from the right edge of the window
     newWidth = bounds.width + deltaX;
+    newX = workArea.x;
   }
 
-  // Enforce min/max width
-  newWidth = Math.max(300, Math.min(newWidth, workArea.width - 100));
+  // Vertical Resize (Always from bottom/corners, keeping top fixed)
+  newHeight = bounds.height + deltaY;
 
+  // Enforce mins
+  newWidth = Math.max(300, Math.min(newWidth, workArea.width - 50));
+  newHeight = Math.max(300, Math.min(newHeight, workArea.height - 50));
+
+  // Recalculate X if right-snapped to ensure it stays pinned
   if (currentSnapSide === 'right') {
-    win.setBounds({
-      x: workArea.x + workArea.width - newWidth,
-      width: newWidth
-    });
-  } else {
-    win.setBounds({
-      width: newWidth
-    });
+    newX = workArea.x + workArea.width - newWidth;
   }
+
+  win.setBounds({
+    x: Math.round(newX),
+    y: Math.round(newY),
+    width: Math.round(newWidth),
+    height: Math.round(newHeight)
+  });
 
   store.set('window-width', newWidth);
 });
