@@ -286,12 +286,52 @@ app.whenReady().then(async () => {
       transparency: 0.8,
       adblockEnabled: true,
       'window-width': 600,
+      themeColor: 'Default',
+      darkMode: 'System',
+      language: 'English',
+      addressBar: 'Hidden',
+      autoLaunch: false,
+      translateEnabled: false,
+      passwordManagerEnabled: false,
+      alwaysOnTop: true,
+      autoCenter: true,
+      defaultSnapSide: 'Right',
+      autoUpdate: true
     }
   } as any);
 
-  if (store.get('transparency') === undefined) store.set('transparency', 0.8);
-  if (store.get('adblockEnabled') === undefined) store.set('adblockEnabled', true);
-  if (store.get('window-width') === undefined) store.set('window-width', 600);
+  // Initialize defaults if missing
+  const defaults = {
+    transparency: 0.8,
+    adblockEnabled: true,
+    'window-width': 600,
+    themeColor: 'Default',
+    darkMode: 'System',
+    language: 'English',
+    addressBar: 'Hidden',
+    autoLaunch: false,
+    translateEnabled: false,
+    passwordManagerEnabled: false,
+    alwaysOnTop: true,
+    autoCenter: true,
+    defaultSnapSide: 'Right',
+    autoUpdate: true
+  };
+
+  Object.entries(defaults).forEach(([key, value]) => {
+    if (store.get(key) === undefined) {
+      store.set(key, value);
+    }
+  });
+
+  // Apply initial global states
+  if (store.get('alwaysOnTop') && win) win.setAlwaysOnTop(true, 'screen-saver');
+  if (store.get('autoLaunch')) {
+     app.setLoginItemSettings({
+      openAtLogin: true,
+      path: app.getPath('exe')
+    });
+  }
 
   await setupAdblocker();
   
@@ -393,4 +433,20 @@ ipcMain.on('window-resize', (_event, { deltaX, deltaY }) => {
   });
 
   store.set('window-width', newWidth);
+});
+
+// Settings Handlers
+ipcMain.on('set-auto-launch', (_event, enabled: boolean) => {
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: app.getPath('exe'),
+  });
+  if (store) store.set('autoLaunch', enabled);
+});
+
+ipcMain.on('set-always-on-top', (_event, enabled: boolean) => {
+  if (win) {
+    win.setAlwaysOnTop(enabled, 'screen-saver');
+  }
+  if (store) store.set('alwaysOnTop', enabled);
 });

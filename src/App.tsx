@@ -8,6 +8,7 @@ import {
 import Browser, { type BrowserRef } from './Browser';
 import Settings from './Settings';
 import HomeView from './Home';
+import { useSettings } from './contexts/SettingsContext';
 
 interface Tab {
   id: string;
@@ -22,7 +23,7 @@ interface Tab {
 export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
   const [slideSide, setSlideSide] = useState('right');
-  const [transparency, setTransparency] = useState(0.8);
+  const { settings } = useSettings();
   
   const [view, setView] = useState<'home' | 'browser' | 'settings'>('home');
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -61,9 +62,6 @@ export default function App() {
 
   useEffect(() => {
     if ((window as any).electronAPI) {
-      (window as any).electronAPI.getStoreValue('transparency').then((val: number) => {
-        if (val !== undefined) setTransparency(val);
-      });
       const blurHandler = (side: string) => {
         setSlideSide(side);
         setIsBlurred(true);
@@ -147,7 +145,7 @@ export default function App() {
   const slideOffset = slideSide === 'left' ? -slideWidth : slideWidth;
   
   const bgStyle = {
-    backgroundColor: `rgba(40, 48, 60, ${transparency})` 
+    backgroundColor: `rgba(40, 48, 60, ${settings.transparency})` 
   };
 
   return (
@@ -244,10 +242,7 @@ export default function App() {
           </div>
         )}
         {view === 'settings' && (
-          <Settings 
-            transparency={transparency} 
-            setTransparency={setTransparency} 
-          />
+          <Settings />
         )}
         
         {view === 'home' && (

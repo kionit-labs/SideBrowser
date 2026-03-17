@@ -10,6 +10,8 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
 	hideWindow: () => electron.ipcRenderer.send("hide-window"),
 	setAutoHide: (enabled) => electron.ipcRenderer.send("set-auto-hide", enabled),
 	setAutoSnap: (enabled) => electron.ipcRenderer.send("set-auto-snap", enabled),
-	resizeWindow: (deltas) => electron.ipcRenderer.send("window-resize", deltas)
+	resizeWindow: (deltas) => electron.ipcRenderer.send("window-resize", deltas),
+	setAutoLaunch: (enabled) => electron.ipcRenderer.send("set-auto-launch", enabled),
+	setAlwaysOnTop: (enabled) => electron.ipcRenderer.send("set-always-on-top", enabled)
 });
 //#endregion

@@ -233,12 +233,43 @@ electron.app.whenReady().then(async () => {
 		template: {
 			transparency: .8,
 			adblockEnabled: true,
-			"window-width": 600
+			"window-width": 600,
+			themeColor: "Default",
+			darkMode: "System",
+			language: "English",
+			addressBar: "Hidden",
+			autoLaunch: false,
+			translateEnabled: false,
+			passwordManagerEnabled: false,
+			alwaysOnTop: true,
+			autoCenter: true,
+			defaultSnapSide: "Right",
+			autoUpdate: true
 		}
 	});
-	if (store.get("transparency") === void 0) store.set("transparency", .8);
-	if (store.get("adblockEnabled") === void 0) store.set("adblockEnabled", true);
-	if (store.get("window-width") === void 0) store.set("window-width", 600);
+	Object.entries({
+		transparency: .8,
+		adblockEnabled: true,
+		"window-width": 600,
+		themeColor: "Default",
+		darkMode: "System",
+		language: "English",
+		addressBar: "Hidden",
+		autoLaunch: false,
+		translateEnabled: false,
+		passwordManagerEnabled: false,
+		alwaysOnTop: true,
+		autoCenter: true,
+		defaultSnapSide: "Right",
+		autoUpdate: true
+	}).forEach(([key, value]) => {
+		if (store.get(key) === void 0) store.set(key, value);
+	});
+	if (store.get("alwaysOnTop") && win) win.setAlwaysOnTop(true, "screen-saver");
+	if (store.get("autoLaunch")) electron.app.setLoginItemSettings({
+		openAtLogin: true,
+		path: electron.app.getPath("exe")
+	});
 	await setupAdblocker();
 	try {
 		const iconPath = path.default.join(process.env.VITE_PUBLIC || "", "favicon.ico");
@@ -324,5 +355,16 @@ electron.ipcMain.on("window-resize", (_event, { deltaX, deltaY }) => {
 		height: Math.round(newHeight)
 	});
 	store.set("window-width", newWidth);
+});
+electron.ipcMain.on("set-auto-launch", (_event, enabled) => {
+	electron.app.setLoginItemSettings({
+		openAtLogin: enabled,
+		path: electron.app.getPath("exe")
+	});
+	if (store) store.set("autoLaunch", enabled);
+});
+electron.ipcMain.on("set-always-on-top", (_event, enabled) => {
+	if (win) win.setAlwaysOnTop(enabled, "screen-saver");
+	if (store) store.set("alwaysOnTop", enabled);
 });
 //#endregion

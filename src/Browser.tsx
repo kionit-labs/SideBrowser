@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { useSettings } from './contexts/SettingsContext';
+import { Globe, Lock } from 'lucide-react';
 
 export interface BrowserRef {
   goBack: () => void;
@@ -18,6 +20,10 @@ interface BrowserProps {
 const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, onStateChange }, ref) => {
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
+  const [currentUrl, setCurrentUrl] = useState(url);
+  const [isHoveringEdge, setIsHoveringEdge] = useState(false);
+  const { settings } = useSettings();
+  const addressBarPos = settings.addressBar;
 
   useImperativeHandle(ref, () => ({
     goBack: () => webviewRef.current?.goBack(),
@@ -54,11 +60,20 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, onStateCh
         canGoBack: webview.canGoBack(),
         canGoForward: webview.canGoForward()
       });
+      setCurrentUrl(webview.getURL());
+    };
+
+    const onLoadCommit = (e: any) => {
+       if (e.isMainFrame) {
+         setCurrentUrl(e.url);
+       }
     };
 
     webview.addEventListener('did-finish-load', onDidFinishLoad);
+    webview.addEventListener('load-commit', onLoadCommit);
     return () => {
       webview.removeEventListener('did-finish-load', onDidFinishLoad);
+      webview.removeEventListener('load-commit', onLoadCommit);
     };
   }, []);
 
@@ -72,8 +87,44 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, onStateCh
 
   if (!preloadPath) return null;
 
+  const showAddressBar = addressBarPos !== 'Hidden' && isHoveringEdge;
+
   return (
-    <div className={`w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}>
+    <div 
+      className={`w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
+    >
+      {/* Edge Detection Zones for Address Bar */}
+      {addressBarPos === 'Top' && (
+        <div 
+          className="absolute top-0 left-0 right-0 h-6 z-40 bg-transparent"
+          onMouseEnter={() => setIsHoveringEdge(true)}
+        />
+      )}
+      {addressBarPos === 'Bottom' && (
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-6 z-40 bg-transparent"
+          onMouseEnter={() => setIsHoveringEdge(true)}
+        />
+      )}
+
+      {/* The Address Bar */}
+      {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (
+        <div 
+          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-zinc-800/95 backdrop-blur-md rounded-xl border border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-50 ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+          onMouseLeave={() => setIsHoveringEdge(false)}
+        >
+          <div className="flex items-center justify-center p-1.5 rounded-md bg-white/5 text-zinc-400">
+            {currentUrl.startsWith('https') ? <Lock size={14} className="text-green-400" /> : <Globe size={14} />}
+          </div>
+          <input 
+            type="text" 
+            value={currentUrl} 
+            readOnly
+            className="flex-1 bg-transparent text-sm text-zinc-200 outline-none w-full cursor-default"
+          />
+        </div>
+      )}
+
       <webview
         ref={webviewRef}
         src={url}

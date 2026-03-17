@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAutoHide: (enabled: boolean) => ipcRenderer.send('set-auto-hide', enabled),
   setAutoSnap: (enabled: boolean) => ipcRenderer.send('set-auto-snap', enabled),
   resizeWindow: (deltas: { deltaX: number; deltaY: number }) => ipcRenderer.send('window-resize', deltas),
+  setAutoLaunch: (enabled: boolean) => ipcRenderer.send('set-auto-launch', enabled),
+  setAlwaysOnTop: (enabled: boolean) => ipcRenderer.send('set-always-on-top', enabled),
 });
