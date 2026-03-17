@@ -9,6 +9,7 @@ import Browser, { type BrowserRef } from './Browser';
 import Settings from './Settings';
 import HomeView from './Home';
 import { useSettings } from './contexts/SettingsContext';
+import { getThemeVariables } from './utils/themes';
 
 interface Tab {
   id: string;
@@ -144,7 +145,11 @@ export default function App() {
   const slideWidth = window.innerWidth; // Hide 100% of the window
   const slideOffset = slideSide === 'left' ? -slideWidth : slideWidth;
   
+  const isDark = settings.darkMode === 'Dark' || (settings.darkMode === 'System' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const themeVars = getThemeVariables(settings.themeColor, isDark) as React.CSSProperties;
+
   const bgStyle = {
+    ...themeVars,
     backgroundColor: `rgba(40, 48, 60, ${settings.transparency})` 
   };
 
@@ -236,7 +241,7 @@ export default function App() {
             className="absolute right-0 top-0 bottom-0 w-8 z-50 flex items-center justify-end pr-0.5 opacity-0 hover:opacity-100 transition-opacity group cursor-pointer"
             onClick={() => setIsSidebarHidden(false)}
           >
-            <div className="bg-[#33445A] p-2 rounded-l-md text-white shadow-xl border-y border-l border-black/30 backdrop-blur-md">
+            <div className="bg-[var(--theme-sidebar)] p-2 rounded-l-md text-[var(--theme-text)] shadow-xl border-y border-l border-black/30 backdrop-blur-md">
               <ChevronsLeft size={24} className="opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all" />
             </div>
           </div>
@@ -268,7 +273,7 @@ export default function App() {
       {/* Sidebar - Positioned on right */}
       {!isSidebarHidden && (
         <div 
-          className="w-[68px] flex flex-col justify-between items-center py-3 bg-[#33445A] border-l border-black/20 relative z-40 text-slate-300 shrink-0"
+          className="w-[68px] flex flex-col justify-between items-center py-3 bg-[var(--theme-sidebar)] border-l border-black/20 relative z-40 text-slate-300 shrink-0"
           onClick={(e) => e.stopPropagation()} // Prevent clicking sidebar from closing context menu immediately
         >
         
@@ -297,7 +302,7 @@ export default function App() {
                 setView('home');
                 setContextMenuTabId(null);
               }} 
-              className={`w-full aspect-square flex items-center justify-center rounded-lg transition-all duration-200 ${view === 'home' ? 'bg-[#517096] text-white' : 'hover:bg-white/10'}`}
+              className={`w-full aspect-square flex items-center justify-center rounded-lg transition-all duration-200 ${view === 'home' ? 'bg-[var(--theme-active)] text-white' : 'hover:bg-white/10'}`}
             >
               <Home size={22} />
             </button>
@@ -312,7 +317,6 @@ export default function App() {
                      setView('browser');
                      if (contextMenuTabId === tab.id) {
                         setContextMenuTabId(null);
-                        setActiveTabId(tab.id);
                      } else if (activeTabId === tab.id && view === 'browser') {
                         setContextMenuTabId(tab.id);
                      } else {
@@ -327,7 +331,7 @@ export default function App() {
 
                 {/* Tab Context Menu Overlay */}
                 {contextMenuTabId === tab.id && (
-                  <div className="absolute top-1/2 -translate-y-1/2 right-[72px] bg-[#33445A] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 p-4 min-w-[340px] flex flex-col gap-4 z-50 origin-right transition-all">
+                  <div className="absolute top-1/2 -translate-y-1/2 right-[72px] bg-[var(--theme-sidebar)] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 p-4 min-w-[340px] flex flex-col gap-4 z-50 origin-right transition-all">
                     {/* Header */}
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">

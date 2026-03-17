@@ -29,7 +29,7 @@ export default function Settings() {
         <h3 className="text-[15px] font-semibold text-zinc-100">{label}</h3>
         <button 
           onClick={onToggle}
-          className={`relative w-11 h-6 rounded-full transition-colors duration-300 border ${enabled ? 'bg-[#3b5270] border-[#3b5270]' : 'bg-zinc-800 border-zinc-700'}`}
+          className={`relative w-11 h-6 rounded-full transition-colors duration-300 border ${enabled ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)]' : 'bg-zinc-800 border-zinc-700'}`}
         >
           <div className={`absolute top-[1px] left-[1px] w-5 h-5 rounded-full transition-transform duration-300 shadow-sm ${enabled ? 'translate-x-5 bg-white' : 'translate-x-0 bg-zinc-400'}`}></div>
         </button>
@@ -39,7 +39,7 @@ export default function Settings() {
   );
 
   return (
-    <div className="w-full h-full bg-[#1b1f24] text-zinc-100 flex flex-col font-sans">
+    <div className="w-full h-full bg-[var(--theme-settings)] text-[var(--theme-text)] flex flex-col font-sans">
       <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
       
       {/* Settings Header */}
@@ -63,8 +63,8 @@ export default function Settings() {
                 onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2.5 text-sm font-semibold transition-all duration-200 rounded-t-lg mx-0.5 ${
                   activeTab === tab 
-                    ? 'bg-[#3b5270] text-white' 
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                    ? 'bg-[var(--theme-accent)] text-white' 
+                    : 'text-zinc-400 hover:text-[var(--theme-text)] hover:bg-zinc-800/50'
                 }`}
               >
                 {tab}
