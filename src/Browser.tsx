@@ -22,6 +22,8 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
   const [currentUrl, setCurrentUrl] = useState(url);
+  const [inputValue, setInputValue] = useState(url);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const { settings } = useSettings();
   const addressBarPos = settings.addressBar;
 
@@ -76,6 +78,39 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       webview.removeEventListener('load-commit', onLoadCommit);
     };
   }, []);
+
+  // Sync Input Value when URL changes, but only if NOT focused
+  useEffect(() => {
+    if (!isInputFocused) {
+      setInputValue(currentUrl);
+    }
+  }, [currentUrl, isInputFocused]);
+
+  const handleNavigate = () => {
+    let target = inputValue.trim();
+    if (!target) return;
+
+    // Basic URL detection
+    const isUrl = target.match(/^https?:\/\//) || 
+                  (target.includes('.') && !target.includes(' '));
+    
+    if (!isUrl) {
+      target = `https://www.google.com/search?q=${encodeURIComponent(target)}`;
+    } else if (!target.startsWith('http')) {
+      target = `https://${target}`;
+    }
+
+    webviewRef.current?.loadURL(target);
+    webviewRef.current?.focus();
+    setIsInputFocused(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleNavigate();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
 
   useEffect(() => {
     if ((window as any).electronAPI) {
@@ -148,9 +183,13 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
           </div>
           <input 
             type="text" 
-            value={currentUrl} 
-            readOnly
-            className="flex-1 bg-transparent text-sm text-zinc-200 outline-none w-full cursor-default"
+            value={inputValue} 
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
+            className="flex-1 bg-transparent text-sm text-zinc-200 outline-none w-full"
+            placeholder="Search or enter URL"
           />
         </div>
       )}
