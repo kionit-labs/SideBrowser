@@ -109,14 +109,16 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
-  // Fixed Capsule rounding for Browser (Sidebar is fixed on right)
-  const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
+  // Double-Masking for Pixel Perfection:
+  // We clip the content 0.5px deeper than the container border to ensure no anti-aliasing artifacts.
+  const clipPathValue = `inset(0.5px 0 0.5px 0.5px round var(--app-radius) 0 0 var(--app-radius))`;
 
   return (
     <div 
       className={`w-full h-full transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
       style={{ 
-        backgroundColor: 'transparent',
+        backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 5%, transparent)',
+        borderRadius: 'var(--app-radius) 0 0 var(--app-radius)',
         clipPath: clipPathValue,
         WebkitClipPath: clipPathValue,
       }}
@@ -130,7 +132,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
           backgroundColor: 'transparent',
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
-          borderRadius: borderRadiusValue
+          borderRadius: 'var(--app-radius) 0 0 var(--app-radius)'
         } as any}
       />
 

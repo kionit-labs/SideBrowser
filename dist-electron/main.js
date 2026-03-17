@@ -176,6 +176,7 @@ function createWindow() {
 		transparent: true,
 		skipTaskbar: true,
 		alwaysOnTop: true,
+		backgroundColor: "#00000000",
 		webPreferences: {
 			preload: path.default.join(__dirname, "preload.js"),
 			webviewTag: true,
