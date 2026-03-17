@@ -44,7 +44,7 @@ export function getThemeVariables(themeName: string, isDark: boolean) {
   return {
     '--theme-sidebar': mode.sidebar,
     '--theme-settings': mode.settings,
-    '--theme-content-bg': isDarkBase ? mode.settings : '#ffffff',
+    '--theme-content-bg': isDarkBase ? mode.settings : '#f3f4f6',
     '--theme-accent': mode.accent,
     '--theme-active': mode.active,
     '--theme-text': isDarkBase ? '#f4f4f5' : '#111827',

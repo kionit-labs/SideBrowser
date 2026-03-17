@@ -126,15 +126,15 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               {showEngineMenu && (
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-zinc-200 py-2 z-[100] animate-in slide-in-from-top-2 duration-200">
                   {searchEngines.map((engine) => (
-                    <button
-                      key={engine.name}
-                      type="button"
-                      onClick={() => {
-                        updateSetting('searchEngine', engine.name);
-                        setShowEngineMenu(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 hover:bg-zinc-100 transition-colors text-zinc-800 text-sm font-medium"
-                    >
+                      <button
+                        key={engine.name}
+                        type="button"
+                        onClick={() => {
+                          updateSetting('searchEngine', engine.name);
+                          setShowEngineMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-black/5 transition-colors text-zinc-800 text-sm font-medium"
+                      >
                       <div className="w-6 h-6 flex items-center justify-center shrink-0">
                          <img src={`https://www.google.com/s2/favicons?domain=${engine.domain}&sz=64`} alt={engine.name} className="w-4 h-4 object-contain" />
                       </div>
@@ -208,7 +208,8 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-zinc-900 border border-white/10 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl border border-black/10 dark:border-white/10"
+            style={{ backgroundColor: 'var(--theme-sidebar)', color: 'var(--theme-text)' }}
           >
             <h2 className="text-xl font-bold mb-4">Yeni Kısayol Ekle</h2>
             <form onSubmit={handleAddShortcut} className="space-y-4">
@@ -218,7 +219,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                   type="text" 
                   value={newShortcut.name}
                   onChange={e => setNewShortcut(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-white/5 rounded-lg px-4 py-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 text-[var(--theme-text)] outline-none focus:ring-1 focus:ring-[var(--theme-accent)]"
                   placeholder="örn. YouTube"
                   autoFocus
                 />
@@ -229,7 +230,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                   type="text" 
                   value={newShortcut.url}
                   onChange={e => setNewShortcut(prev => ({ ...prev, url: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-white/5 rounded-lg px-4 py-2 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 text-[var(--theme-text)] outline-none focus:ring-1 focus:ring-[var(--theme-accent)]"
                   placeholder="örn. youtube.com"
                 />
               </div>
@@ -237,13 +238,13 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                 <button 
                   type="button" 
                   onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors font-medium text-sm"
+                  className="flex-1 px-4 py-2 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-lg transition-colors font-medium text-sm"
                 >
                   İptal
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-medium text-sm"
+                  className="flex-1 px-4 py-2 bg-[var(--theme-accent)] text-white rounded-lg transition-colors font-medium text-sm"
                 >
                   Ekle
                 </button>

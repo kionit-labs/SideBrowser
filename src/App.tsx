@@ -159,7 +159,7 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="flex h-screen w-screen bg-transparent overflow-hidden rounded-xl shadow-2xl relative"
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative ${slideSide === 'right' ? 'rounded-l-xl' : 'rounded-r-xl'}`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
@@ -266,6 +266,7 @@ export default function App() {
                   url={tab.url} 
                   isActive={activeTabId === tab.id && view === 'browser'} 
                   isAddressBarTriggered={isHoveringAddressBarEdge}
+                  slideSide={slideSide}
                   onStateChange={(state) => {
                     setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, url: state.url, title: state.title } : t));
                   }} 
@@ -278,9 +279,10 @@ export default function App() {
       {/* Sidebar - Positioned on right */}
       {!isSidebarHidden && (
         <div 
-          className="w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/20 relative z-40 text-slate-300 shrink-0"
+          className={`w-[68px] flex flex-col justify-between items-center py-3 ${slideSide === 'right' ? 'border-l' : 'border-r'} border-black/10 dark:border-white/5 relative z-40 shrink-0 ${slideSide === 'right' ? 'rounded-r-xl' : 'rounded-l-xl'}`}
           style={{ 
-            backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)' 
+            backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
+            color: 'var(--theme-text)'
           }}
           onClick={(e) => e.stopPropagation()} // Prevent clicking sidebar from closing context menu immediately
         >
@@ -290,13 +292,13 @@ export default function App() {
             <div className="flex items-center justify-center gap-2 mb-1">
               <button 
                 onClick={() => activeTabId && browserRefs.current[activeTabId]?.goBack()} 
-                className="text-slate-400 hover:text-white transition-colors p-1"
+                className="text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity p-1"
               >
                 <ArrowLeft size={16} />
               </button>
               <button 
                 onClick={() => activeTabId && browserRefs.current[activeTabId]?.goForward()} 
-                className="text-slate-400 hover:text-white transition-colors p-1"
+                className="text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity p-1"
               >
                 <ArrowRight size={16} />
               </button>
@@ -345,19 +347,19 @@ export default function App() {
                           <img src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=64`} alt={tab.title} className="w-full h-full object-cover scale-100" onError={(e) => { (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>'; }} />
                         </div>
                         <div className="flex flex-col overflow-hidden leading-tight justify-center">
-                          <span className="text-white font-medium truncate text-sm">{tab.title}</span>
-                          <span className="text-slate-400 text-xs truncate max-w-[240px]">{tab.url}</span>
+                          <span className="text-[var(--theme-text)] font-semibold truncate text-sm">{tab.title}</span>
+                          <span className="text-[var(--theme-text)] opacity-50 text-xs truncate max-w-[240px]">{tab.url}</span>
                         </div>
                       </div>
-
+                      
                       {/* Actions Row */}
-                      <div className="flex items-center justify-between text-slate-300">
-                        <button onClick={() => browserRefs.current[tab.id]?.goBack()} title="Back" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><ArrowLeft size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.goForward()} title="Forward" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><ArrowRight size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.reload()} title="Refresh" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><RotateCw size={18} /></button>
-                        <button onClick={() => window.open(tab.url, '_blank')} title="Open in default browser" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><ExternalLink size={18} /></button>
-                        <button onClick={() => navigator.clipboard.writeText(tab.url)} title="Copy URL" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><Copy size={18} /></button>
-                        <button title="Independent window" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><Layers size={18} /></button>
+                      <div className="flex items-center justify-between text-[var(--theme-text)]">
+                        <button onClick={() => browserRefs.current[tab.id]?.goBack()} title="Back" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
+                        <button onClick={() => browserRefs.current[tab.id]?.goForward()} title="Forward" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
+                        <button onClick={() => browserRefs.current[tab.id]?.reload()} title="Refresh" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
+                        <button onClick={() => window.open(tab.url, '_blank')} title="Open in default browser" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(tab.url)} title="Copy URL" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
+                        <button title="Independent window" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
                         
                         <button 
                           onClick={() => {
@@ -365,9 +367,9 @@ export default function App() {
                             setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMuted: !!muted } : t));
                           }} 
                           title={tab.isMuted ? "Unmute" : "Mute"} 
-                          className={`p-1.5 rounded-md transition-colors ${tab.isMuted ? 'text-red-400 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-white/10'}`}
+                          className={`p-1.5 rounded-md transition-colors ${tab.isMuted ? 'text-red-500 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                         >
-                          <Volume2 size={18} className={tab.isMuted ? 'opacity-50' : ''} />
+                          <Volume2 size={18} className={tab.isMuted ? 'opacity-100' : ''} />
                         </button>
                         
                         <button 
@@ -376,13 +378,13 @@ export default function App() {
                             setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMobile: !!mobile } : t));
                           }} 
                           title="Device Emulation" 
-                          className={`p-1.5 rounded-md transition-colors ${tab.isMobile ? 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-white/10'}`}
+                          className={`p-1.5 rounded-md transition-colors ${tab.isMobile ? 'text-blue-500 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                         >
                           <Smartphone size={18} />
                         </button>
                         
-                        <button title="Remove website data" className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><Database strokeWidth={1.5} size={18} /></button>
-                        <button onClick={() => handleCloseTab(tab.id)} title="Delete tab" className="p-1.5 hover:bg-red-500/20 text-red-300 hover:text-red-400 rounded-md transition-colors"><Trash2 size={18} /></button>
+                        <button title="Remove website data" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
+                        <button onClick={() => handleCloseTab(tab.id)} title="Delete tab" className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   )}
@@ -393,39 +395,39 @@ export default function App() {
 
           {/* Bottom Group */}
           <div className="flex flex-col gap-2 w-full items-center mb-2 px-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
-            <div className="grid grid-cols-2 gap-1.5 w-full text-slate-400">
+            <div className="grid grid-cols-2 gap-1.5 w-full text-[var(--theme-text)] opacity-40">
               <button 
                 onClick={() => { if ((window as any).electronAPI) (window as any).electronAPI.hideWindow() }} 
                 title="Hide Window"
-                className="flex items-center justify-center hover:text-white transition-colors p-1"
+                className="flex items-center justify-center hover:opacity-100 transition-opacity p-1"
               >
                 <ChevronsLeft size={18} />
               </button>
               <button 
                 onClick={() => setIsAutoHideLossFocus(!isAutoHideLossFocus)}
                 title="Auto hide window focus"
-                className={`flex items-center justify-center transition-colors p-1 ${isAutoHideLossFocus ? 'text-blue-400' : 'hover:text-white'}`}
+                className={`flex items-center justify-center transition-all p-1 ${isAutoHideLossFocus ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <MinusCircle size={18} />
               </button>
               <button 
                 onClick={() => setIsGlobalMuted(!isGlobalMuted)}
                 title="Mute all pages"
-                className={`flex items-center justify-center transition-colors p-1 ${isGlobalMuted ? 'text-red-400' : 'hover:text-white'}`}
+                className={`flex items-center justify-center transition-all p-1 ${isGlobalMuted ? 'text-red-500 opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 {isGlobalMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
               </button>
               <button 
                 onClick={() => setIsSidebarHidden(!isSidebarHidden)}
                 title="Hide Sidebar"
-                className={`flex items-center justify-center transition-colors p-1 ${isSidebarHidden ? 'text-blue-400' : 'hover:text-white'}`}
+                className={`flex items-center justify-center transition-all p-1 ${isSidebarHidden ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <SidebarIcon size={18} />
               </button>
               <button 
                 onClick={() => setIsAutoEdgeSnapping(!isAutoEdgeSnapping)}
                 title="Auto edge snapping"
-                className={`flex items-center justify-center transition-colors p-1 ${isAutoEdgeSnapping ? 'text-blue-400' : 'hover:text-white'}`}
+                className={`flex items-center justify-center transition-all p-1 ${isAutoEdgeSnapping ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <Monitor size={18} />
               </button>
@@ -435,7 +437,7 @@ export default function App() {
                   setContextMenuTabId(null);
                 }}
                 title="Settings"
-                className={`flex items-center justify-center transition-colors p-1 ${view === 'settings' ? 'text-white' : 'hover:text-white'}`}
+                className={`flex items-center justify-center transition-all p-1 ${view === 'settings' ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <SettingsIcon size={18} />
               </button>

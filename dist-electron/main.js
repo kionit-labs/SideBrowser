@@ -31,6 +31,14 @@ let electron_datastore = require("electron-datastore");
 electron.app.name = "Side Browser";
 if (process.platform === "win32") electron.app.setAppUserModelId("com.ismail.sidebrowser");
 process.setMaxListeners(100);
+process.on("unhandledRejection", (reason, promise) => {
+	console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (error) => {
+	console.error("Uncaught Exception:", error);
+});
+electron.app.commandLine.appendSwitch("disable-http-cache");
+electron.app.commandLine.appendSwitch("disable-gpu-program-cache");
 if (!electron.app.requestSingleInstanceLock()) electron.app.quit();
 else electron.app.on("second-instance", () => {
 	if (win) {
@@ -173,6 +181,10 @@ function createWindow() {
 			contextIsolation: true,
 			nodeIntegration: false
 		}
+	});
+	win.webContents.setMaxListeners(100);
+	win.webContents.on("did-attach-webview", (_event, webContents) => {
+		webContents.setMaxListeners(100);
 	});
 	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 	win.setBounds({

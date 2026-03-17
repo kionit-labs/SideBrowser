@@ -15,10 +15,11 @@ interface BrowserProps {
   url: string;
   isActive: boolean;
   isAddressBarTriggered: boolean;
+  slideSide: string;
   onStateChange: (state: { url: string; title: string; canGoBack: boolean; canGoForward: boolean }) => void;
 }
 
-const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onStateChange }, ref) => {
+const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, slideSide, onStateChange }, ref) => {
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
   const [currentUrl, setCurrentUrl] = useState(url);
@@ -109,11 +110,24 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
+  // Conditional rounding based on which side the sidebar is on
+  // if slideSide === 'right', it means sidebar is on right, so we round LEFT corners of browser.
+  // if slideSide === 'left', it means sidebar is on left, so we round RIGHT corners of browser.
+  const clipPathValue = slideSide === 'right' 
+    ? 'inset(0 round 16px 0 0 16px)' 
+    : 'inset(0 round 0 16px 16px 0)';
+  
+  const borderRadiusValue = slideSide === 'right'
+    ? '16px 0 0 16px'
+    : '0 16px 16px 0';
+
   return (
     <div 
       className={`w-full h-full transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
       style={{ 
         backgroundColor: 'transparent',
+        clipPath: clipPathValue,
+        WebkitClipPath: clipPathValue,
       }}
     >
       <webview
@@ -123,18 +137,19 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         className="w-full h-full overflow-hidden"
         style={{ 
           backgroundColor: 'transparent',
-          clipPath: 'inset(0 round 16px)',
-          WebkitClipPath: 'inset(0 round 16px)',
-          borderRadius: '16px'
+          clipPath: clipPathValue,
+          WebkitClipPath: clipPathValue,
+          borderRadius: borderRadiusValue
         } as any}
       />
 
       {/* The Address Bar */}
       {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (
         <div 
-          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl bg-zinc-800/95 backdrop-blur-md rounded-xl border border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-50 ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-50 ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+          style={{ backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 95%, transparent)' }}
         >
-          <div className="flex items-center justify-center p-1.5 rounded-md bg-white/5 text-zinc-400">
+          <div className="flex items-center justify-center p-1.5 rounded-md bg-black/5 dark:bg-white/5 text-[var(--theme-text)] opacity-60">
             {currentUrl.startsWith('https') ? <Lock size={14} className="text-green-400" /> : <Globe size={14} />}
           </div>
           <input 
