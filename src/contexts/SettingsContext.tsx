@@ -143,7 +143,7 @@ const defaultSettings: SettingsState = {
   alwaysOnTop: true,
   autoCenter: true,
   transparency: 0.8,
-  defaultSnapSide: 'Right',
+  defaultSnapSide: 'right',
   autoUpdate: true,
   homeBackground: 0,
   searchEngine: 'Google',

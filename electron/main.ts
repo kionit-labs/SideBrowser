@@ -204,6 +204,8 @@ function createWindow() {
   const workArea = primaryDisplay.workArea;
 
   const initialWidth = store.get('window-width') || 600;
+  const lastSnapSide = store.get('defaultSnapSide') || 'right';
+  currentSnapSide = lastSnapSide.toLowerCase() as 'left' | 'right';
 
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
@@ -236,8 +238,13 @@ function createWindow() {
 
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
+  // Position window based on last snap side
+  const initialX = currentSnapSide === 'left' 
+    ? workArea.x 
+    : workArea.x + workArea.width - initialWidth;
+
   win.setBounds({
-    x: workArea.x + workArea.width - initialWidth,
+    x: initialX,
     y: workArea.y + Math.floor((workArea.height - 600) / 2),
     width: initialWidth,
     height: 600
@@ -266,6 +273,9 @@ function createWindow() {
         win.setBounds({ x: workArea.x + workArea.width - bounds.width, y: bounds.y, width: bounds.width, height: bounds.height });
         currentSnapSide = 'right';
       }
+      
+      // Persist the new snap side
+      store.set('defaultSnapSide', currentSnapSide);
     }
   });
 
@@ -325,7 +335,7 @@ app.whenReady().then(async () => {
       passwordManagerEnabled: false,
       alwaysOnTop: true,
       autoCenter: true,
-      defaultSnapSide: 'Right',
+      defaultSnapSide: 'right',
       autoUpdate: true
     }
   } as any);
@@ -344,7 +354,7 @@ app.whenReady().then(async () => {
     passwordManagerEnabled: false,
     alwaysOnTop: true,
     autoCenter: true,
-    defaultSnapSide: 'Right',
+    defaultSnapSide: 'right',
     autoUpdate: true
   };
 

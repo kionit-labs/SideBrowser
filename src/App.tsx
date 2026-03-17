@@ -23,8 +23,8 @@ interface Tab {
 
 export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
-  const [slideSide, setSlideSide] = useState('right');
   const { settings } = useSettings();
+  const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
   
   const [view, setView] = useState<'home' | 'browser' | 'settings'>('home');
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -41,6 +41,13 @@ export default function App() {
 
   const [isHoveringAddressBarEdge, setIsHoveringAddressBarEdge] = useState(false);
   const browserRefs = useRef<Record<string, BrowserRef>>({});
+
+  // Lifecycle to sync slideSide with settings (important for startup initialization)
+  useEffect(() => {
+    if (settings.defaultSnapSide) {
+      setSlideSide(settings.defaultSnapSide);
+    }
+  }, [settings.defaultSnapSide]);
 
   useEffect(() => {
     if ((window as any).electronAPI) {

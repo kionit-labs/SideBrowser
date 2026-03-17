@@ -184,7 +184,7 @@ export default function Settings() {
                 />
                 <SelectItem 
                   label={t('window.snapside')} 
-                  options={['Right', 'Left']} 
+                  options={['right', 'left']} 
                   subtitle={t('window.snapside.sub')}
                   value={settings.defaultSnapSide}
                   onChange={(val: string) => updateSetting('defaultSnapSide', val)}
