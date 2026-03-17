@@ -128,14 +128,12 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         ref={webviewRef}
         src={url}
         preload={preloadPath}
-        className="overflow-hidden"
+        className="w-full h-full overflow-hidden"
         style={{ 
-          position: 'absolute',
-          top: '-1%',
-          left: '-1%',
-          width: '102%',
-          height: '102%',
           backgroundColor: 'transparent',
+          clipPath: clipPathValue,
+          WebkitClipPath: clipPathValue,
+          borderRadius: 'var(--app-radius) 0 0 var(--app-radius)'
         } as any}
       />
 
