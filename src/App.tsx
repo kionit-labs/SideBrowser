@@ -168,7 +168,7 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative ${slideSide === 'right' ? 'flex-row rounded-l-2xl' : 'flex-row-reverse rounded-r-2xl'}`}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative ${slideSide === 'right' ? 'rounded-l-2xl' : 'rounded-r-2xl'}`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
@@ -285,10 +285,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sidebar - Dynamically positioned based on snap side */}
+      {/* Sidebar - Positioned on right */}
       {!isSidebarHidden && (
         <div 
-          className={`w-[68px] flex flex-col justify-between items-center py-3 ${slideSide === 'right' ? 'border-l' : 'border-r'} border-black/10 dark:border-white/5 relative z-40 shrink-0`}
+          className={`w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 ${slideSide === 'left' ? 'rounded-r-2xl' : ''}`}
           style={{ 
             backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
             color: 'var(--theme-text)'
