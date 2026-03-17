@@ -173,9 +173,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if ((window as any).electronAPI) {
         const loadedSettings = { ...defaultSettings };
         for (const key of Object.keys(defaultSettings) as Array<keyof SettingsState>) {
-          const val = await (window as any).electronAPI.getStoreValue(key);
-          if (val !== undefined) {
-            (loadedSettings as any)[key] = val;
+          try {
+            const val = await (window as any).electronAPI.getStoreValue(key);
+            if (val !== undefined) {
+              (loadedSettings as any)[key] = val;
+            }
+          } catch (e) {
+            console.warn(`Failed to load setting: ${key}`, e);
           }
         }
         setSettings(loadedSettings);

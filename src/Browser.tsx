@@ -79,10 +79,30 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   useEffect(() => {
     if ((window as any).electronAPI) {
-      (window as any).electronAPI.getPreloadPath().then((p: string) => {
-        setPreloadPath(`file://${p.replace(/\\/g, '/')}`);
-      });
+      (window as any).electronAPI.getPreloadPath()
+        .then((p: string) => {
+          setPreloadPath(`file://${p.replace(/\\/g, '/')}`);
+        })
+        .catch((err: any) => {
+          console.error("Failed to get preload path:", err);
+        });
     }
+  }, []);
+
+  useEffect(() => {
+    const webview = webviewRef.current;
+    if (!webview) return;
+
+    // Defensive: also set limit on the webContents if it attaches here
+    const onDomReady = () => {
+      const wc = webview.getWebContents();
+      if (wc) wc.setMaxListeners(100);
+    };
+
+    webview.addEventListener('dom-ready', onDomReady);
+    return () => {
+      webview.removeEventListener('dom-ready', onDomReady);
+    };
   }, []);
 
   if (!preloadPath) return null;
@@ -91,10 +111,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   return (
     <div 
-      className={`w-full h-full rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
+      className={`w-full h-full transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
       style={{ 
-        backgroundColor: 'color-mix(in srgb, var(--theme-content-bg) 100%, transparent)',
-        borderRadius: '16px' 
+        backgroundColor: 'transparent',
       }}
     >
       <webview
@@ -104,7 +123,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         className="w-full h-full overflow-hidden"
         style={{ 
           backgroundColor: 'transparent',
-          borderRadius: '16px' 
+          clipPath: 'inset(0 round 16px)',
+          WebkitClipPath: 'inset(0 round 16px)',
+          borderRadius: '16px'
         } as any}
       />
 

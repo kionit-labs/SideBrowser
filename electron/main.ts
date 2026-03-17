@@ -13,6 +13,18 @@ if (process.platform === 'win32') {
 // Increase global event listener limit to prevent MaxListenersExceededWarning
 process.setMaxListeners(100);
 
+// Handle unhandled promises and exceptions to prevent Terminal clutter and crashes
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+// Disable cache to mitigate memory leaks from high-frequency ad-blocking/loading
+app.commandLine.appendSwitch('disable-http-cache');
+app.commandLine.appendSwitch('disable-gpu-program-cache');
+
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -212,6 +224,14 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  // Set listener limit specifically for WebContents to prevent did-stop-loading warnings
+  win.webContents.setMaxListeners(100);
+
+  // Apply high listener limits to EVERY webview that attaches
+  win.webContents.on('did-attach-webview', (_event, webContents) => {
+     webContents.setMaxListeners(100);
   });
 
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
