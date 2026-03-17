@@ -109,7 +109,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   // Absolute Transparency for Pixel Perfection:
   // We remove all insets and background fills. The webview now meets the container edge exactly at 0px.
-  // We use the global --app-radius (25px) for perfect synchronization with the window edges.
+  // We use the global --app-radius (24px) for perfect synchronization with the window edges.
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
@@ -128,12 +128,14 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         ref={webviewRef}
         src={url}
         preload={preloadPath}
-        className="w-full h-full overflow-hidden"
+        className="overflow-hidden"
         style={{ 
+          position: 'absolute',
+          top: '-1%',
+          left: '-1%',
+          width: '102%',
+          height: '102%',
           backgroundColor: 'transparent',
-          clipPath: clipPathValue,
-          WebkitClipPath: clipPathValue,
-          borderRadius: 'var(--app-radius) 0 0 var(--app-radius)'
         } as any}
       />
 

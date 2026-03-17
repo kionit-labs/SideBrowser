@@ -168,13 +168,8 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden relative rounded-[var(--app-radius)]`}
-      style={{ 
-        ...rootStyle,
-        boxShadow: settings.darkMode === 'Dark' 
-          ? '0 0 0 1px rgba(255,255,255,0.1) inset' 
-          : '0 0 0 1px rgba(0,0,0,0.15) inset'
-      }}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/10 dark:border-white/5 relative rounded-[var(--app-radius)]`}
+      style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
           (window as any).electronAPI.sendMouseEnter();
