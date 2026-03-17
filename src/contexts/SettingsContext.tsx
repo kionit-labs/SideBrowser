@@ -106,6 +106,12 @@ export function useTranslation() {
   return { t };
 }
 
+export interface Shortcut {
+  id: string;
+  name: string;
+  url: string;
+}
+
 export interface SettingsState {
   language: string;
   themeColor: string;
@@ -122,6 +128,7 @@ export interface SettingsState {
   autoUpdate: boolean;
   homeBackground: number;
   searchEngine: string;
+  shortcuts: Shortcut[];
 }
 
 const defaultSettings: SettingsState = {
@@ -139,7 +146,14 @@ const defaultSettings: SettingsState = {
   defaultSnapSide: 'Right',
   autoUpdate: true,
   homeBackground: 0,
-  searchEngine: 'Google'
+  searchEngine: 'Google',
+  shortcuts: [
+    { id: '1', name: 'Google', url: 'https://google.com' },
+    { id: '2', name: 'ChatGPT', url: 'https://chat.openai.com' },
+    { id: '3', name: 'Notion', url: 'https://notion.so' },
+    { id: '4', name: 'X', url: 'https://x.com' },
+    { id: '5', name: 'Youtube', url: 'https://youtube.com' },
+  ],
 };
 
 interface SettingsContextType {

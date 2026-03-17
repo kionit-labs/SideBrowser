@@ -331,7 +331,7 @@ export default function App() {
                           setContextMenuTabId(null);
                        }
                     }} 
-                    className={`w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-md border-2 transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'border-[#6ea0d3] scale-105' : 'border-transparent hover:scale-105'}`}
+                    className={`w-10 h-10 flex items-center justify-center rounded-full bg-white transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'border-2 border-[#6ea0d3] scale-105 shadow-md' : 'border-0 hover:scale-105'}`}
                   >
                     <img src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=64`} alt={tab.title} className="w-full h-full object-cover scale-100" onError={(e) => { (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>'; }} />
                   </button>
