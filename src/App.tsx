@@ -168,7 +168,7 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden relative rounded-[var(--app-radius)] glass-border-overlay`}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative rounded-[var(--app-radius)]`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
