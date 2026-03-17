@@ -14,8 +14,10 @@ if (process.platform === 'win32') {
 process.setMaxListeners(100);
 
 // Handle unhandled promises and exceptions to prevent Terminal clutter and crashes
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason: any) => {
+    // Suppress "Script failed to execute" which is a common noise in WebViews with strict CSP
+    if (reason?.message?.includes('Script failed to execute')) return;
+    console.error('Unhandled Rejection reason:', reason);
 });
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
@@ -232,10 +234,16 @@ function createWindow() {
   // Set listener limit specifically for WebContents to prevent did-stop-loading warnings
   win.webContents.setMaxListeners(100);
 
-  // Apply high listener limits to EVERY webview that attaches
+  // Apply high listener limits and TRANSPARENT background to EVERY webview that attaches
   win.webContents.on('did-attach-webview', (_event, webContents) => {
      webContents.setMaxListeners(100);
+     // This is CRITICAL for resolving the "white corners" issue - it forces the webview guest to be transparent.
+     webContents.setBackgroundColor('#00000000');
   });
+
+  // Sync initial opacity from store
+  const savedOpacity = store.get('transparency') ?? 0.95;
+  win.setOpacity(savedOpacity);
 
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
@@ -324,7 +332,7 @@ app.whenReady().then(async () => {
   store = new Store({
     name: 'slide-browser-preferences',
     template: {
-      transparency: 0.8,
+      transparency: 0.95,
       adblockEnabled: true,
       'window-width': 600,
       themeColor: 'Default',
@@ -343,7 +351,7 @@ app.whenReady().then(async () => {
 
   // Initialize defaults if missing
   const defaults = {
-    transparency: 0.8,
+    transparency: 0.95,
     adblockEnabled: true,
     'window-width': 600,
     themeColor: 'Default',

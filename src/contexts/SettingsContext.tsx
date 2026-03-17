@@ -142,7 +142,7 @@ const defaultSettings: SettingsState = {
   passwordManagerEnabled: false,
   alwaysOnTop: true,
   autoCenter: true,
-  transparency: 0.8,
+  transparency: 0.95,
   defaultSnapSide: 'right',
   autoUpdate: true,
   homeBackground: 0,
