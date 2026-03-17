@@ -15,11 +15,10 @@ interface BrowserProps {
   url: string;
   isActive: boolean;
   isAddressBarTriggered: boolean;
-  slideSide: string;
   onStateChange: (state: { url: string; title: string; canGoBack: boolean; canGoForward: boolean }) => void;
 }
 
-const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, slideSide, onStateChange }, ref) => {
+const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onStateChange }, ref) => {
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
   const [currentUrl, setCurrentUrl] = useState(url);
@@ -111,17 +110,10 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
   // Conditional rounding based on which side the sidebar is on
-  // Capsule rounding for Browser:
-  // If snapped right, the browser's LEFT edge is in the middle of the screen -> round it.
-  // If snapped left, the browser's LEFT edge is on the monitor and RIGHT edge is at sidebar junction -> both straight.
+  // Fixed Capsule rounding for Browser (Sidebar is fixed on right)
   const radius = '24px';
-  const borderRadiusValue = slideSide === 'right' 
-    ? `${radius} 0 0 ${radius}` 
-    : '0';
-  
-  const clipPathValue = slideSide === 'right'
-    ? `inset(0 0 0 0 round ${radius} 0 0 ${radius})`
-    : 'none';
+  const borderRadiusValue = `${radius} 0 0 ${radius}`;
+  const clipPathValue = `inset(0 0 0 0 round ${radius} 0 0 ${radius})`;
 
   return (
     <div 
