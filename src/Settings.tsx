@@ -46,7 +46,8 @@ export default function Settings() {
       }}
     >
       {/* Settings Header */}
-      <div className="px-10 pt-12 pb-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      {/* Settings Header - Removed no-drag to allow global drag handle on top to work */}
+      <div className="px-10 pt-12 pb-4">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold tracking-tight">{t('settings.title')}</h1>
           <button className="flex items-center gap-1 text-sm font-medium text-zinc-300 hover:text-white transition-colors">
