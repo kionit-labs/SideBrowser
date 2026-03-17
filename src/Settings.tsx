@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Minus, Plus, ChevronRight } from 'lucide-react';
 import { useSettings, useTranslation } from './contexts/SettingsContext';
 
 export default function Settings() {
@@ -11,12 +12,12 @@ export default function Settings() {
   const SelectItem = ({ label, subtitle, options, value, onChange }: any) => (
     <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-zinc-100">{label}</h3>
+        <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{label}</h3>
         <select 
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-200 text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500/50 min-w-[120px]">
-          {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+          className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500/50 min-w-[120px]">
+          {options.map((opt: string) => <option key={opt} value={opt} className="bg-zinc-900 text-white">{opt}</option>)}
         </select>
       </div>
       {subtitle && <p className="text-[13px] text-zinc-500 mt-2">{subtitle}</p>}
@@ -26,7 +27,7 @@ export default function Settings() {
   const ToggleItem = ({ label, subtitle, enabled, onToggle }: any) => (
     <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold text-zinc-100">{label}</h3>
+        <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{label}</h3>
         <button 
           onClick={onToggle}
           className={`relative w-11 h-6 rounded-full transition-colors duration-300 border ${enabled ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)]' : 'bg-zinc-800 border-zinc-700'}`}
@@ -49,9 +50,9 @@ export default function Settings() {
       {/* Settings Header - Removed no-drag to allow global drag handle on top to work */}
       <div className="px-10 pt-12 pb-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold tracking-tight">{t('settings.title')}</h1>
-          <button className="flex items-center gap-1 text-sm font-medium text-zinc-300 hover:text-white transition-colors">
-            {t('settings.feedback')} <span className="text-lg leading-none">&rarr;</span>
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--theme-text)]">{t('settings.title')}</h1>
+          <button className="flex items-center gap-1 text-sm font-medium text-[var(--theme-text)] opacity-60 hover:opacity-100 transition-opacity">
+            {t('settings.feedback')} <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -60,15 +61,15 @@ export default function Settings() {
         <div className="max-w-3xl flex flex-col">
           
           {/* Tabs Group */}
-          <div className="flex w-full mt-2 mb-6 border-b border-zinc-800">
+          <div className="flex w-full mt-2 mb-6 border-b border-white/10">
             {tabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2.5 text-sm font-semibold transition-all duration-200 rounded-t-lg mx-0.5 ${
                   activeTab === tab 
-                    ? 'bg-[var(--theme-accent)] text-white' 
-                    : 'text-zinc-400 hover:text-[var(--theme-text)] hover:bg-zinc-800/50'
+                    ? 'bg-[var(--theme-accent)] text-white shadow-sm' 
+                    : 'text-[var(--theme-text)] opacity-50 hover:opacity-100 hover:bg-white/5'
                 }`}
               >
                 {tab}
@@ -136,21 +137,35 @@ export default function Settings() {
                 <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-[15px] font-semibold text-zinc-100">{t('window.transparency')}</h3>
+                      <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('window.transparency')}</h3>
                       <p className="text-[13px] text-zinc-500 mt-1">{t('window.transparency.sub')}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                       <span className="text-xs font-mono text-zinc-400">{Math.round(settings.transparency * 100)}%</span>
-                       <input 
-                        type="range" 
-                        min="0.3" 
-                        max="1.0" 
-                        step="0.05" 
-                        value={settings.transparency} 
-                        onChange={(e) => updateSetting('transparency', parseFloat(e.target.value))}
-                        className="w-32 accent-[#3b5270] bg-zinc-800 h-1.5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[var(--theme-color)] [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-                        style={{ accentColor: 'var(--theme-color)' }}
-                      />
+                       <span className="text-xs font-mono text-[var(--theme-text)] opacity-60">{Math.round(settings.transparency * 100)}%</span>
+                       <div className="flex items-center gap-3">
+                         <button 
+                            onClick={() => updateSetting('transparency', Math.max(0.3, parseFloat((settings.transparency - 0.01).toFixed(2))))}
+                            className="p-1 hover:bg-white/10 rounded transition-colors text-[var(--theme-text)]"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <input 
+                            type="range" 
+                            min="0.3" 
+                            max="1.0" 
+                            step="0.05" 
+                            value={settings.transparency} 
+                            onChange={(e) => updateSetting('transparency', parseFloat(e.target.value))}
+                            className="w-32 accent-[#3b5270] bg-zinc-800 h-1.5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[var(--theme-color)] [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                            style={{ accentColor: 'var(--theme-color)' }}
+                          />
+                          <button 
+                            onClick={() => updateSetting('transparency', Math.min(1.0, parseFloat((settings.transparency + 0.01).toFixed(2))))}
+                            className="p-1 hover:bg-white/10 rounded transition-colors text-[var(--theme-text)]"
+                          >
+                            <Plus size={14} />
+                          </button>
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -198,12 +213,12 @@ export default function Settings() {
                 </div>
 
                 <div className="pt-6 border-t border-white/5">
-                  <h3 className="text-lg font-bold text-white mb-4">Preferences</h3>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">Preferences</h3>
                   <label className="flex items-center gap-3 cursor-pointer group w-max">
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded bg-[#3b5270] border border-[#3b5270]">
+                    <div className="relative flex items-center justify-center w-5 h-5 rounded bg-[var(--theme-accent)] border border-[var(--theme-accent)]">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
-                    <span className="text-[15px] font-medium text-zinc-100 group-hover:text-white transition-colors">Automatically check for updates</span>
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90 transition-colors">Automatically check for updates</span>
                   </label>
                 </div>
               </div>
@@ -212,21 +227,21 @@ export default function Settings() {
             {activeTab === 'Shortcuts' && (
               <div className="flex flex-col animate-in fade-in duration-300">
                 <div className="flex flex-col pt-2">
-                  <h3 className="text-lg font-bold text-white mb-4">Global Shortcuts</h3>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">Global Shortcuts</h3>
                   
                   <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-zinc-200 group-hover:text-white transition-colors pr-6">Switch Window Show and Hide</span>
-                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-400 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">Switch Window Show and Hide</span>
+                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
                   </div>
                   
                   <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-zinc-200 group-hover:text-white transition-colors pr-6">Enable/Disable Automatically Hide the Window When It Loses Focus</span>
-                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-400 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">Enable/Disable Automatically Hide the Window When It Loses Focus</span>
+                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
                   </div>
                 </div>
 
                 <div className="flex flex-col pt-8">
-                  <h3 className="text-lg font-bold text-white mb-4">In-window Shortcuts</h3>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">In-window Shortcuts</h3>
                   
                   {[
                     ['New Window', 'Ctrl + N'],
@@ -250,8 +265,8 @@ export default function Settings() {
                     ['Add Favorite', 'Ctrl + D']
                   ].map(([label, shortcut], i) => (
                     <div key={i} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 -mx-2 rounded-lg">
-                      <span className="text-[15px] font-medium text-zinc-200">{label}</span>
-                      <span className="text-[14px] font-mono font-medium text-zinc-400 bg-zinc-800/50 px-2 py-1 rounded">{shortcut}</span>
+                      <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90">{label}</span>
+                      <span className="text-[14px] font-mono font-medium text-[var(--theme-text)] opacity-60 bg-zinc-800/30 px-2 py-1 rounded">{shortcut}</span>
                     </div>
                   ))}
                 </div>
