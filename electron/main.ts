@@ -93,19 +93,23 @@ let isWindowOpen = false;
 function startEdgeCheck() {
   if (!edgeCheckInterval) {
     edgeCheckInterval = setInterval(() => {
-      if (!win) return;
+      if (!win || isWindowOpen || !currentSnapSide) return;
       
       const point = screen.getCursorScreenPoint();
-      const display = screen.getDisplayNearestPoint(point);
-      const workArea = display.workArea;
+      const bounds = win.getBounds();
+      const winDisplay = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+      const mouseDisplay = screen.getDisplayNearestPoint(point);
+      
+      // ONLY trigger if the mouse is on the SAME display as the window
+      if (winDisplay.id !== mouseDisplay.id) return;
 
-      if (!isWindowOpen && currentSnapSide) {
-        if (
-          (currentSnapSide === 'left' && point.x <= workArea.x + 1) ||
-          (currentSnapSide === 'right' && point.x >= workArea.x + workArea.width - 2)
-        ) {
-          triggerFocus();
-        }
+      const workArea = mouseDisplay.workArea;
+
+      if (
+        (currentSnapSide === 'left' && point.x <= workArea.x + 1) ||
+        (currentSnapSide === 'right' && point.x >= workArea.x + workArea.width - 2)
+      ) {
+        triggerFocus();
       }
     }, 50);
   }

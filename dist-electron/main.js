@@ -83,12 +83,17 @@ var isAutoSnap = true;
 var isWindowOpen = false;
 function startEdgeCheck() {
 	if (!edgeCheckInterval) edgeCheckInterval = setInterval(() => {
-		if (!win) return;
+		if (!win || isWindowOpen || !currentSnapSide) return;
 		const point = electron.screen.getCursorScreenPoint();
-		const workArea = electron.screen.getDisplayNearestPoint(point).workArea;
-		if (!isWindowOpen && currentSnapSide) {
-			if (currentSnapSide === "left" && point.x <= workArea.x + 1 || currentSnapSide === "right" && point.x >= workArea.x + workArea.width - 2) triggerFocus();
-		}
+		const bounds = win.getBounds();
+		const winDisplay = electron.screen.getDisplayNearestPoint({
+			x: bounds.x,
+			y: bounds.y
+		});
+		const mouseDisplay = electron.screen.getDisplayNearestPoint(point);
+		if (winDisplay.id !== mouseDisplay.id) return;
+		const workArea = mouseDisplay.workArea;
+		if (currentSnapSide === "left" && point.x <= workArea.x + 1 || currentSnapSide === "right" && point.x >= workArea.x + workArea.width - 2) triggerFocus();
 	}, 50);
 }
 function triggerFocus() {

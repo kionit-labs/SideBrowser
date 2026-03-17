@@ -93,16 +93,24 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, onStateCh
     <div 
       className={`w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
     >
-      {/* Edge Detection Zones for Address Bar */}
+      <webview
+        ref={webviewRef}
+        src={url}
+        preload={preloadPath}
+        className="w-full h-full rounded-xl overflow-hidden bg-white"
+        style={{ borderRadius: '16px' } as any}
+      />
+
+      {/* Edge Detection Zones for Address Bar - Moved to end to ensure they are on top of webview */}
       {addressBarPos === 'Top' && (
         <div 
-          className="absolute top-0 left-0 right-0 h-6 z-40 bg-transparent"
+          className="absolute top-0 left-0 right-0 h-4 z-[60] bg-transparent pointer-events-auto"
           onMouseEnter={() => setIsHoveringEdge(true)}
         />
       )}
       {addressBarPos === 'Bottom' && (
         <div 
-          className="absolute bottom-0 left-0 right-0 h-6 z-40 bg-transparent"
+          className="absolute bottom-0 left-0 right-0 h-4 z-[60] bg-transparent pointer-events-auto"
           onMouseEnter={() => setIsHoveringEdge(true)}
         />
       )}
@@ -124,14 +132,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, onStateCh
           />
         </div>
       )}
-
-      <webview
-        ref={webviewRef}
-        src={url}
-        preload={preloadPath}
-        className="w-full h-full rounded-xl overflow-hidden bg-white"
-        style={{ borderRadius: '16px' } as any}
-      />
     </div>
   );
 });

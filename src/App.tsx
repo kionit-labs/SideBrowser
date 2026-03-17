@@ -170,7 +170,7 @@ export default function App() {
         if (contextMenuTabId) setContextMenuTabId(null);
       }}
     >
-      <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
+      <div className="absolute top-0 left-0 right-0 h-8 z-[100] pointer-events-auto" style={{ WebkitAppRegion: 'drag' } as any} />
 
       {/* Resize Capture Overlay - Prevents webview from stealing events during resize */}
       {isResizing && (

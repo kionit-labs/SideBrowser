@@ -45,10 +45,8 @@ export default function Settings() {
         backgroundColor: 'color-mix(in srgb, var(--theme-settings) calc(var(--transparency) * 100%), transparent)' 
       }}
     >
-      <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
-      
       {/* Settings Header */}
-      <div className="px-10 pt-10 pb-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className="px-10 pt-12 pb-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold tracking-tight">{t('settings.title')}</h1>
           <button className="flex items-center gap-1 text-sm font-medium text-zinc-300 hover:text-white transition-colors">
