@@ -107,10 +107,12 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   if (!preloadPath) return null;
 
-  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
-
-  // Fixed Capsule rounding for Browser (Sidebar is fixed on right)
+  // Absolute Transparency for Pixel Perfection:
+  // We remove all insets and background fills. The webview now meets the container edge exactly at 0px.
+  // We use the global --app-radius (24px) for perfect synchronization with the window edges.
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
+
+  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
   return (
     <div 

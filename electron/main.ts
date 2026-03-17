@@ -15,8 +15,9 @@ process.setMaxListeners(100);
 
 // Handle unhandled promises and exceptions to prevent Terminal clutter and crashes
 process.on('unhandledRejection', (reason: any) => {
+    const msg = reason?.message || (typeof reason === 'string' ? reason : '');
     // Suppress "Script failed to execute" which is a common noise in WebViews with strict CSP
-    if (reason?.message?.includes('Script failed to execute')) return;
+    if (msg.includes('Script failed to execute')) return;
     console.error('Unhandled Rejection reason:', reason);
 });
 process.on('uncaughtException', (error) => {
@@ -238,7 +239,7 @@ function createWindow() {
   win.webContents.on('did-attach-webview', (_event, webContents) => {
      webContents.setMaxListeners(100);
      // This is CRITICAL for resolving the "white corners" issue - it forces the webview guest to be transparent.
-     webContents.setBackgroundColor('#00000000');
+     (webContents as any).setBackgroundColor('#00000000');
   });
 
   // Sync initial opacity from store
@@ -264,6 +265,13 @@ function createWindow() {
   } else {
     win.loadFile(path.join(process.env.DIST || '', 'index.html'));
   }
+
+  win.once('ready-to-show', () => {
+    if (win) {
+      const savedOpacity = store.get('transparency') ?? 0.95;
+      win.setOpacity(savedOpacity);
+    }
+  });
 
   win.on('moved', () => {
     if (!win) return;

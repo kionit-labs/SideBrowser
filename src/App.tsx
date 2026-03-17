@@ -168,8 +168,13 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative rounded-[var(--app-radius)]`}
-      style={rootStyle}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden relative rounded-[var(--app-radius)]`}
+      style={{ 
+        ...rootStyle,
+        boxShadow: settings.darkMode === 'Dark' 
+          ? '0 0 0 1px rgba(255,255,255,0.1) inset' 
+          : '0 0 0 1px rgba(0,0,0,0.15) inset'
+      }}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
           (window as any).electronAPI.sendMouseEnter();
@@ -267,7 +272,7 @@ export default function App() {
           <HomeView onNavigate={handleNavigate} />
         )}
 
-        <div className={`flex-1 w-full h-full p-0 m-0 ${view === 'browser' ? 'block' : 'hidden'}`}>
+        <div className={`flex-1 w-full h-full p-0 m-0 bg-transparent ${view === 'browser' ? 'block' : 'hidden'}`}>
           {tabs.map((tab) => (
              <div key={tab.id} className={`w-full h-full ${activeTabId === tab.id ? 'block' : 'hidden'}`}>
                 <Browser 

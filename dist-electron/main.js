@@ -31,8 +31,9 @@ let electron_datastore = require("electron-datastore");
 electron.app.name = "Side Browser";
 if (process.platform === "win32") electron.app.setAppUserModelId("com.ismail.sidebrowser");
 process.setMaxListeners(100);
-process.on("unhandledRejection", (reason, promise) => {
-	console.error("Unhandled Rejection at:", promise, "reason:", reason);
+process.on("unhandledRejection", (reason) => {
+	if ((reason?.message || (typeof reason === "string" ? reason : "")).includes("Script failed to execute")) return;
+	console.error("Unhandled Rejection reason:", reason);
 });
 process.on("uncaughtException", (error) => {
 	console.error("Uncaught Exception:", error);
@@ -187,7 +188,10 @@ function createWindow() {
 	win.webContents.setMaxListeners(100);
 	win.webContents.on("did-attach-webview", (_event, webContents) => {
 		webContents.setMaxListeners(100);
+		webContents.setBackgroundColor("#00000000");
 	});
+	const savedOpacity = store.get("transparency") ?? .95;
+	win.setOpacity(savedOpacity);
 	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 	const initialX = currentSnapSide === "left" ? workArea.x : workArea.x + workArea.width - initialWidth;
 	win.setBounds({
@@ -198,6 +202,12 @@ function createWindow() {
 	});
 	if (VITE_DEV_SERVER_URL) win.loadURL(VITE_DEV_SERVER_URL);
 	else win.loadFile(path.default.join(process.env.DIST || "", "index.html"));
+	win.once("ready-to-show", () => {
+		if (win) {
+			const savedOpacity = store.get("transparency") ?? .95;
+			win.setOpacity(savedOpacity);
+		}
+	});
 	win.on("moved", () => {
 		if (!win) return;
 		if (isAutoSnap) {
@@ -254,7 +264,7 @@ electron.app.whenReady().then(async () => {
 	store = new electron_datastore.Store({
 		name: "slide-browser-preferences",
 		template: {
-			transparency: .8,
+			transparency: .95,
 			adblockEnabled: true,
 			"window-width": 600,
 			themeColor: "Default",
@@ -271,7 +281,7 @@ electron.app.whenReady().then(async () => {
 		}
 	});
 	Object.entries({
-		transparency: .8,
+		transparency: .95,
 		adblockEnabled: true,
 		"window-width": 600,
 		themeColor: "Default",
