@@ -109,11 +109,8 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
-  // Conditional rounding based on which side the sidebar is on
   // Fixed Capsule rounding for Browser (Sidebar is fixed on right)
-  const radius = '24px';
-  const borderRadiusValue = `${radius} 0 0 ${radius}`;
-  const clipPathValue = `inset(0 0 0 0 round ${radius} 0 0 ${radius})`;
+  const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
   return (
     <div 

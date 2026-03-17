@@ -25,4 +25,22 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }
+
+  :root {
+    --app-radius: 24px;
+  }
+
+  .glass-border-overlay {
+    position: relative;
+  }
+
+  .glass-border-overlay::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--theme-text) 15%, transparent);
+    border-radius: var(--app-radius);
+    z-index: 50;
+  }
 }

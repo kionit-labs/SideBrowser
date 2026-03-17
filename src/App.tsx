@@ -168,7 +168,7 @@ export default function App() {
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative rounded-[24px]`}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden relative rounded-[var(--app-radius)] glass-border-overlay`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
@@ -287,7 +287,7 @@ export default function App() {
       {/* Sidebar - Positioned on right, always rounded on the right edge */}
       {!isSidebarHidden && (
         <div 
-          className={`w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 rounded-r-[24px]`}
+          className={`w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 rounded-r-[var(--app-radius)]`}
           style={{ 
             backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
             color: 'var(--theme-text)'
