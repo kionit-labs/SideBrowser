@@ -148,10 +148,10 @@ export default function App() {
   const isDark = settings.darkMode === 'Dark' || (settings.darkMode === 'System' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const themeVars = getThemeVariables(settings.themeColor, isDark) as React.CSSProperties;
 
-  const bgStyle = {
+  const rootStyle = {
     ...themeVars,
-    backgroundColor: `rgba(40, 48, 60, ${settings.transparency})` 
-  };
+    '--transparency': settings.transparency
+  } as React.CSSProperties;
 
   return (
     <motion.div
@@ -159,6 +159,7 @@ export default function App() {
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="flex h-screen w-screen bg-transparent overflow-hidden rounded-xl shadow-2xl relative"
+      style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
           (window as any).electronAPI.sendMouseEnter();
@@ -232,8 +233,10 @@ export default function App() {
 
       {/* Main Content Area (Left side) */}
       <div 
-        className="flex-1 flex flex-col relative h-full overflow-hidden m-0 p-0 text-zinc-100"
-        style={{ ...bgStyle }}
+        className="flex-1 flex flex-col relative h-full overflow-hidden m-0 p-0 text-[var(--theme-text)]"
+        style={{ 
+          backgroundColor: 'color-mix(in srgb, var(--theme-content-bg) calc(var(--transparency) * 100%), transparent)' 
+        }}
       >
         {/* Sidebar Restorer Arrow (Absolute Overlay) */}
         {isSidebarHidden && (
@@ -273,7 +276,10 @@ export default function App() {
       {/* Sidebar - Positioned on right */}
       {!isSidebarHidden && (
         <div 
-          className="w-[68px] flex flex-col justify-between items-center py-3 bg-[var(--theme-sidebar)] border-l border-black/20 relative z-40 text-slate-300 shrink-0"
+          className="w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/20 relative z-40 text-slate-300 shrink-0"
+          style={{ 
+            backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)' 
+          }}
           onClick={(e) => e.stopPropagation()} // Prevent clicking sidebar from closing context menu immediately
         >
         

@@ -4,6 +4,7 @@ export function getThemeVariables(themeName: string, isDark: boolean) {
   const base = {
     '--theme-sidebar': '#33445A',
     '--theme-settings': '#1b1f24',
+    '--theme-content-bg': '#28303C',
     '--theme-accent': '#3b5270',
     '--theme-active': '#517096',
     '--theme-text': '#f4f4f5',
@@ -14,6 +15,7 @@ export function getThemeVariables(themeName: string, isDark: boolean) {
     return {
       '--theme-sidebar': '#d1d5db',
       '--theme-settings': '#f3f4f6',
+      '--theme-content-bg': '#ffffff',
       '--theme-accent': '#9ca3af',
       '--theme-active': '#6b7280',
       '--theme-text': '#111827',
@@ -42,6 +44,7 @@ export function getThemeVariables(themeName: string, isDark: boolean) {
   return {
     '--theme-sidebar': mode.sidebar,
     '--theme-settings': mode.settings,
+    '--theme-content-bg': isDarkBase ? mode.settings : '#ffffff',
     '--theme-accent': mode.accent,
     '--theme-active': mode.active,
     '--theme-text': isDarkBase ? '#f4f4f5' : '#111827',

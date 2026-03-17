@@ -39,7 +39,12 @@ export default function Settings() {
   );
 
   return (
-    <div className="w-full h-full bg-[var(--theme-settings)] text-[var(--theme-text)] flex flex-col font-sans">
+    <div 
+      className="w-full h-full text-[var(--theme-text)] flex flex-col font-sans"
+      style={{ 
+        backgroundColor: 'color-mix(in srgb, var(--theme-settings) calc(var(--transparency) * 100%), transparent)' 
+      }}
+    >
       <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
       
       {/* Settings Header */}
