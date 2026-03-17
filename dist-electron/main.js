@@ -30,6 +30,7 @@ let electron_datastore = require("electron-datastore");
 //#region electron/main.ts
 electron.app.name = "Side Browser";
 if (process.platform === "win32") electron.app.setAppUserModelId("com.ismail.sidebrowser");
+process.setMaxListeners(100);
 if (!electron.app.requestSingleInstanceLock()) electron.app.quit();
 else electron.app.on("second-instance", () => {
 	if (win) {
@@ -227,6 +228,7 @@ function createWindow() {
 }
 electron.app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") {
+		if (blocker) blocker.disableBlockingInSession(electron.session.defaultSession);
 		electron.app.quit();
 		win = null;
 	}

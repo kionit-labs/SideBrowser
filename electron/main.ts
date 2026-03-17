@@ -10,6 +10,9 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.ismail.sidebrowser');
 }
 
+// Increase global event listener limit to prevent MaxListenersExceededWarning
+process.setMaxListeners(100);
+
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -275,6 +278,9 @@ function createWindow() {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    if (blocker) {
+      blocker.disableBlockingInSession(session.defaultSession);
+    }
     app.quit();
     win = null;
   }

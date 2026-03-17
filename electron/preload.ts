@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resizeWindow: (deltas: { deltaX: number; deltaY: number }) => ipcRenderer.send('window-resize', deltas),
   setAutoLaunch: (enabled: boolean) => ipcRenderer.send('set-auto-launch', enabled),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.send('set-always-on-top', enabled),
+  removeAllListeners: (channel: string) => ipcRenderer.removeAllListeners(channel),
 });

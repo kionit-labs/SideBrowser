@@ -91,14 +91,21 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
   return (
     <div 
-      className={`w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
+      className={`w-full h-full rounded-xl overflow-hidden shadow-2xl transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
+      style={{ 
+        backgroundColor: 'color-mix(in srgb, var(--theme-content-bg) 100%, transparent)',
+        borderRadius: '16px' 
+      }}
     >
       <webview
         ref={webviewRef}
         src={url}
         preload={preloadPath}
-        className="w-full h-full rounded-xl overflow-hidden bg-white"
-        style={{ borderRadius: '16px' } as any}
+        className="w-full h-full overflow-hidden"
+        style={{ 
+          backgroundColor: 'transparent',
+          borderRadius: '16px' 
+        } as any}
       />
 
       {/* The Address Bar */}
