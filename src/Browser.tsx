@@ -111,15 +111,16 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
 
   // Conditional rounding based on which side the sidebar is on
-  // if slideSide === 'right', it means sidebar is on right, so we round LEFT corners of browser.
-  // if slideSide === 'left', it means sidebar is on left, so we round RIGHT corners of browser.
-  const clipPathValue = slideSide === 'right' 
-    ? 'inset(0 round 16px 0 0 16px)' 
-    : 'inset(0 round 0 16px 16px 0)';
+  // Middle-edge rounding for capsule effect: 
+  // If snapped right, round top-left/bottom-left. If snapped left, round top-right/bottom-right.
+  const radius = '24px'; // Slightly larger for better capsule feel
+  const borderRadiusValue = slideSide === 'right' 
+    ? `${radius} 0 0 ${radius}` 
+    : `0 ${radius} ${radius} 0`;
   
-  const borderRadiusValue = slideSide === 'right'
-    ? '16px 0 0 16px'
-    : '0 16px 16px 0';
+  const clipPathValue = slideSide === 'right'
+    ? `inset(0 0 0 0 round ${radius} 0 0 ${radius})`
+    : `inset(0 0 0 0 round 0 ${radius} ${radius} 0)`;
 
   return (
     <div 

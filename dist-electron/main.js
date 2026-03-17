@@ -162,6 +162,7 @@ function retractWindow() {
 function createWindow() {
 	const workArea = electron.screen.getPrimaryDisplay().workArea;
 	const initialWidth = store.get("window-width") || 600;
+	currentSnapSide = (store.get("defaultSnapSide") || "right").toLowerCase();
 	win = new electron.BrowserWindow({
 		icon: path.default.join(process.env.VITE_PUBLIC || "", "favicon.ico"),
 		width: initialWidth,
@@ -187,8 +188,9 @@ function createWindow() {
 		webContents.setMaxListeners(100);
 	});
 	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	const initialX = currentSnapSide === "left" ? workArea.x : workArea.x + workArea.width - initialWidth;
 	win.setBounds({
-		x: workArea.x + workArea.width - initialWidth,
+		x: initialX,
 		y: workArea.y + Math.floor((workArea.height - 600) / 2),
 		width: initialWidth,
 		height: 600
@@ -220,6 +222,7 @@ function createWindow() {
 				});
 				currentSnapSide = "right";
 			}
+			store.set("defaultSnapSide", currentSnapSide);
 		}
 	});
 	win.on("blur", () => {
@@ -262,7 +265,7 @@ electron.app.whenReady().then(async () => {
 			passwordManagerEnabled: false,
 			alwaysOnTop: true,
 			autoCenter: true,
-			defaultSnapSide: "Right",
+			defaultSnapSide: "right",
 			autoUpdate: true
 		}
 	});
@@ -279,7 +282,7 @@ electron.app.whenReady().then(async () => {
 		passwordManagerEnabled: false,
 		alwaysOnTop: true,
 		autoCenter: true,
-		defaultSnapSide: "Right",
+		defaultSnapSide: "right",
 		autoUpdate: true
 	}).forEach(([key, value]) => {
 		if (store.get(key) === void 0) store.set(key, value);

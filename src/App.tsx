@@ -23,7 +23,7 @@ interface Tab {
 
 export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
-  const { settings } = useSettings();
+  const { settings, isLoading } = useSettings();
   const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
   
   const [view, setView] = useState<'home' | 'browser' | 'settings'>('home');
@@ -161,12 +161,14 @@ export default function App() {
     '--transparency': settings.transparency
   } as React.CSSProperties;
 
+  if (isLoading) return <div className="h-screen w-screen bg-transparent" />;
+
   return (
     <motion.div
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative ${slideSide === 'right' ? 'rounded-l-xl' : 'rounded-r-xl'}`}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/15 dark:border-white/10 relative ${slideSide === 'right' ? 'flex-row rounded-l-2xl' : 'flex-row-reverse rounded-r-2xl'}`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
@@ -283,10 +285,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sidebar - Positioned on right */}
+      {/* Sidebar - Dynamically positioned based on snap side */}
       {!isSidebarHidden && (
         <div 
-          className={`w-[68px] flex flex-col justify-between items-center py-3 ${slideSide === 'right' ? 'border-l' : 'border-r'} border-black/10 dark:border-white/5 relative z-40 shrink-0 ${slideSide === 'right' ? 'rounded-r-xl' : 'rounded-l-xl'}`}
+          className={`w-[68px] flex flex-col justify-between items-center py-3 ${slideSide === 'right' ? 'border-l' : 'border-r'} border-black/10 dark:border-white/5 relative z-40 shrink-0`}
           style={{ 
             backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
             color: 'var(--theme-text)'
