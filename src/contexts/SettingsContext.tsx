@@ -120,6 +120,8 @@ export interface SettingsState {
   transparency: number;
   defaultSnapSide: string;
   autoUpdate: boolean;
+  homeBackground: number;
+  searchEngine: string;
 }
 
 const defaultSettings: SettingsState = {
@@ -136,6 +138,8 @@ const defaultSettings: SettingsState = {
   transparency: 0.8,
   defaultSnapSide: 'Right',
   autoUpdate: true,
+  homeBackground: 0,
+  searchEngine: 'Google'
 };
 
 interface SettingsContextType {
