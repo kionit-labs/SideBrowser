@@ -34,12 +34,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
 
-  // Use a ref for settings to avoid stale closures in webview event handlers
-  const settingsRef = useRef(settings);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
-
   const syncParentState = (webview: any) => {
     const u = webview.getURL();
     const t = webview.getTitle();
@@ -91,48 +85,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     const onDidFinishLoad = () => {
       syncParentState(webview);
       setCurrentUrl(webview.getURL());
-      
-      // Auto-fill: inject credentials via executeJavaScript
-      if (settingsRef.current.passwordManagerEnabled && (window as any).electronAPI?.getCredentialsForUrl) {
-        const pageUrl = webview.getURL();
-        (window as any).electronAPI.getCredentialsForUrl(pageUrl).then((credentials: any[]) => {
-          if (!credentials || credentials.length === 0) return;
-          const cred = credentials[0];
-          const username = (cred.username || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          const password = (cred.password || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          
-          const fillScript = `
-            (function() {
-              let attempts = 0;
-              function tryFill() {
-                attempts++;
-                const passInput = document.querySelector('input[type="password"]');
-                const userInput = document.querySelector('input[name*="login" i], input[id*="login" i], input[type="email"], input[type="text"], input[name*="user" i], input[id*="user" i], input[name*="identifier" i], input[autocomplete*="username" i]');
-                
-                let filled = false;
-                if (userInput && !userInput.value && userInput.type !== 'password') {
-                  userInput.value = '${username}';
-                  userInput.dispatchEvent(new Event('input', { bubbles: true }));
-                  userInput.dispatchEvent(new Event('change', { bubbles: true }));
-                  filled = true;
-                }
-                if (passInput && !passInput.value) {
-                  passInput.value = '${password}';
-                  passInput.dispatchEvent(new Event('input', { bubbles: true }));
-                  passInput.dispatchEvent(new Event('change', { bubbles: true }));
-                  filled = true;
-                }
-                
-                if (!filled && attempts < 20) {
-                  setTimeout(tryFill, 500);
-                }
-              }
-              tryFill();
-            })();
-          `;
-          webview.executeJavaScript(fillScript).catch(() => {});
-        }).catch(() => {});
-      }
     };
 
     const onLoadCommit = (e: any) => {

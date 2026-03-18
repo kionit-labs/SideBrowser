@@ -299,13 +299,23 @@ export default function App() {
             {/* Back/Forward Arrows */}
             <div className="flex items-center justify-center gap-2 mb-1">
               <button 
-                onClick={() => activeTabId && browserRefs.current[activeTabId]?.goBack()} 
+                onClick={() => {
+                  if (activeTabId && browserRefs.current[activeTabId]) {
+                    browserRefs.current[activeTabId].goBack();
+                    setView('browser');
+                  }
+                }} 
                 className="text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity p-1"
               >
                 <ArrowLeft size={16} />
               </button>
               <button 
-                onClick={() => activeTabId && browserRefs.current[activeTabId]?.goForward()} 
+                onClick={() => {
+                  if (activeTabId && browserRefs.current[activeTabId]) {
+                    browserRefs.current[activeTabId].goForward();
+                    setView('browser');
+                  }
+                }} 
                 className="text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity p-1"
               >
                 <ArrowRight size={16} />

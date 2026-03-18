@@ -190,6 +190,58 @@ function createWindow() {
 	win.webContents.setMaxListeners(100);
 	win.webContents.on("did-attach-webview", (_event, webContents) => {
 		webContents.setMaxListeners(100);
+		webContents.on("did-finish-load", () => {
+			try {
+				if (!store?.get("passwordManagerEnabled")) return;
+				const pageUrl = webContents.getURL();
+				const allPasswords = passwordsStore?.get("passwords") || [];
+				let targetHost = "";
+				try {
+					targetHost = new URL(pageUrl).hostname.toLowerCase();
+				} catch {
+					return;
+				}
+				const matched = allPasswords.filter((p) => {
+					try {
+						const pUrl = p.url.startsWith("http") ? p.url : `https://${p.url}`;
+						const pHost = new URL(pUrl).hostname.toLowerCase();
+						return pHost === targetHost || targetHost.endsWith("." + pHost.replace("www.", "")) || pHost.endsWith("." + targetHost.replace("www.", "")) || targetHost.replace("www.", "") === pHost.replace("www.", "");
+					} catch {
+						return false;
+					}
+				});
+				if (matched.length === 0) return;
+				const cred = matched[0];
+				const fillScript = `
+           (function() {
+             let attempts = 0;
+             function tryFill() {
+               attempts++;
+               const passInput = document.querySelector('input[type="password"]');
+               const userInput = document.querySelector('input[name*="login" i], input[id*="login" i], input[type="email"], input[type="text"], input[name*="user" i], input[id*="user" i], input[name*="identifier" i], input[autocomplete*="username" i]');
+               let filled = false;
+               if (userInput && !userInput.value && userInput.type !== 'password') {
+                 userInput.value = '${(cred.username || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'")}';
+                 userInput.dispatchEvent(new Event('input', { bubbles: true }));
+                 userInput.dispatchEvent(new Event('change', { bubbles: true }));
+                 filled = true;
+               }
+               if (passInput && !passInput.value) {
+                 passInput.value = '${(cred.password || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'")}';
+                 passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                 passInput.dispatchEvent(new Event('change', { bubbles: true }));
+                 filled = true;
+               }
+               if (!filled && attempts < 20) setTimeout(tryFill, 500);
+             }
+             tryFill();
+           })();
+         `;
+				webContents.executeJavaScript(fillScript).catch(() => {});
+			} catch (err) {
+				console.error("[Autofill] Main process error:", err);
+			}
+		});
 	});
 	const savedOpacity = store.get("transparency") ?? .95;
 	win.setOpacity(savedOpacity);
