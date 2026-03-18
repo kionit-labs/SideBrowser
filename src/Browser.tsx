@@ -24,7 +24,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const [currentUrl, setCurrentUrl] = useState(url);
   const [inputValue, setInputValue] = useState(url);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const { settings } = useSettings();
   const addressBarPos = settings.addressBar;
 
@@ -101,6 +100,10 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       target = `https://${target}`;
     }
 
+    // Update local state immediately to avoid "jump-back" to previous URL
+    setCurrentUrl(target);
+    setInputValue(target);
+    
     webviewRef.current?.loadURL(target);
     webviewRef.current?.focus();
     setIsInputFocused(false);
@@ -148,8 +151,8 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   // We use the global --app-radius (24px) for perfect synchronization with the window edges.
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
-  // Show bar if triggered by App (hover edge), OR if input is focused, OR if hovering the bar itself
-  const showAddressBar = addressBarPos !== 'Hidden';
+  // Show bar if triggered by App (hover edge), OR if input is focused
+  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered || isInputFocused);
 
   return (
     <div 
