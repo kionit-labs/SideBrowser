@@ -1,8 +1,22 @@
 {
-  "name": "slide-browser",
-  "private": true,
+  "name": "side-browser",
   "version": "1.0.0",
+  "description": "A sleek, slide-out side browser panel for Windows. Built with Electron, React, and TypeScript.",
   "productName": "Side Browser",
+  "license": "MIT",
+  "author": "ismail",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "keywords": [
+    "electron",
+    "browser",
+    "side-panel",
+    "react",
+    "typescript",
+    "desktop-app"
+  ],
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",

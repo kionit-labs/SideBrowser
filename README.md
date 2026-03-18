@@ -1,73 +1,98 @@
-# React + TypeScript + Vite
+# Side Browser
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A sleek, edge-snapping side browser panel for Windows. Pin it to the left or right edge of your screen, and it slides in when you hover the edge — just like a drawer.
 
-Currently, two official plugins are available:
+Built with **Electron**, **React**, **TypeScript**, and **Tailwind CSS**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **Edge Snapping & Auto-Hide** — Docks to the left or right of your screen and slides out of view when you lose focus
+- **Tabbed Browsing** — Open multiple sites with a clean icon-based sidebar
+- **Built-in Ad Blocker** — Powered by Ghostery's adblocker engine
+- **Password Manager** — Import and manage credentials from CSV files
+- **Customizable Themes** — Multiple color themes with dark/light/system mode
+- **Adjustable Transparency** — Control window opacity for an overlay-style experience
+- **Address Bar** — Toggle a top or bottom address bar for quick navigation
+- **Device Emulation** — Switch between desktop and mobile user agents per tab
+- **Per-Tab Controls** — Mute audio, reload, copy URL, open in default browser
+- **Always On Top** — Optionally keep the panel above all other windows
+- **System Tray** — Minimize to tray for quick access
+- **Keyboard-Friendly** — Drag, resize, and navigate with ease
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Screenshots
 
-## Expanding the ESLint configuration
+<!-- Add screenshots here -->
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Getting Started
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Prerequisites
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- [Node.js](https://nodejs.org/) (v18+)
+- [npm](https://www.npmjs.com/)
+- Windows 10/11 (primary target; macOS/Linux may work with adjustments)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Installation
+
+```bash
+git clone https://github.com/YOUR_USERNAME/SideBrowser.git
+cd SideBrowser
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### Build
+
+```bash
+npm run build
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Electron |
+| Frontend | React 19 + TypeScript |
+| Styling | Tailwind CSS 4 |
+| Animation | Framer Motion |
+| Icons | Lucide React |
+| Ad Blocking | @ghostery/adblocker-electron |
+| Storage | electron-datastore |
+| Focus Control | robotjs |
+
+## Project Structure
+
+```
+SideBrowser/
+├── electron/           # Main process & preload scripts
+│   ├── main.ts         # Electron main process
+│   ├── preload.ts      # IPC bridge for renderer
+│   └── webview-preload.ts  # Injected into webviews
+├── src/                # React frontend
+│   ├── App.tsx         # Root layout, sidebar, tabs
+│   ├── Browser.tsx     # Webview wrapper component
+│   ├── Home.tsx        # Home/new tab page
+│   ├── Settings.tsx    # Settings panel
+│   ├── contexts/       # React contexts (settings)
+│   └── utils/          # Theme utilities
+├── public/             # Static assets
+├── index.html          # Entry HTML
+├── vite.config.ts      # Vite + Electron config
+└── package.json
+```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues and pull requests.
+
+## Acknowledgments
+
+Inspired by [SlideBrowser](https://github.com/nicollite/SlideBrowser).
