@@ -459,23 +459,6 @@ export default function App() {
         className="absolute top-0 left-0 right-0 h-10 z-[9999] pointer-events-auto" 
         style={{ WebkitAppRegion: 'drag' } as any} 
       />
-
-      {/* Address Bar Detection Zones - TOP LEVEL OVERLAY (Slightly larger and non-draggable strip at edges) */}
-      {settings.addressBar === 'Top' && (
-        <div 
-          className="absolute top-0 left-0 right-0 h-12 z-[10000] bg-transparent pointer-events-auto"
-          style={{ WebkitAppRegion: 'no-drag' } as any}
-          onMouseEnter={() => setIsHoveringAddressBarEdge(true)}
-          onMouseLeave={() => setIsHoveringAddressBarEdge(false)}
-        />
-      )}
-      {settings.addressBar === 'Bottom' && (
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-12 z-[10000] bg-transparent pointer-events-auto"
-          onMouseEnter={() => setIsHoveringAddressBarEdge(true)}
-          onMouseLeave={() => setIsHoveringAddressBarEdge(false)}
-        />
-      )}
     </motion.div>
   );
 }

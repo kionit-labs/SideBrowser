@@ -149,7 +149,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
   // Show bar if triggered by App (hover edge), OR if input is focused, OR if hovering the bar itself
-  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered || isInputFocused || isHovered);
+  const showAddressBar = addressBarPos !== 'Hidden';
 
   return (
     <div 
@@ -177,15 +177,8 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       {/* The Address Bar */}
       {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (
         <div 
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          style={{ 
-            backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 95%, transparent)',
-            WebkitAppRegion: 'no-drag' 
-          } as any}
           className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-[10005] ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+          style={{ backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 95%, transparent)' }}
         >
           <div className="flex items-center justify-center p-1.5 rounded-md bg-black/5 dark:bg-white/5 text-[var(--theme-text)] opacity-60">
             {currentUrl.startsWith('https') ? <Lock size={14} className="text-green-400" /> : <Globe size={14} />}
