@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Minus, Plus, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Minus, Plus, ChevronRight, Search, Upload, Trash2, Key, ExternalLink } from 'lucide-react';
 import { useSettings, useTranslation } from './contexts/SettingsContext';
 
 export default function Settings() {
@@ -7,7 +7,62 @@ export default function Settings() {
   const { settings, updateSetting } = useSettings();
   const { t } = useTranslation();
 
-  const tabs = ['General', 'Window', 'Updates', 'Shortcuts'];
+  const tabs = ['General', 'Window', settings.passwordManagerEnabled && 'Passwords', 'Updates', 'Shortcuts'].filter(Boolean) as string[];
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [passwords, setPasswords] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (activeTab === 'Passwords') {
+      (window as any).electronAPI.getPasswords().then(setPasswords);
+    }
+  }, [activeTab]);
+
+  const filteredPasswords = useMemo(() => {
+    return passwords.filter(p => 
+      p.url?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [passwords, searchQuery]);
+
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n');
+      const newPasswords = [...passwords];
+      
+      // Basic CSV parsing (name, url, username, password)
+      // Standard Chrome format: name,url,username,password
+      lines.forEach((line, index) => {
+        if (index === 0 && (line.toLowerCase().includes('name') || line.toLowerCase().includes('url'))) return; // Skip header
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length >= 4) {
+          newPasswords.push({
+            id: Date.now() + Math.random(),
+            name: parts[0],
+            url: parts[1],
+            username: parts[2],
+            password: parts[3]
+          });
+        }
+      });
+      
+      setPasswords(newPasswords);
+      (window as any).electronAPI.savePasswords(newPasswords);
+    };
+    reader.readAsText(file);
+  };
+
+  const deletePassword = (id: number) => {
+    const fresh = passwords.filter(p => p.id !== id);
+    setPasswords(fresh);
+    (window as any).electronAPI.savePasswords(fresh);
+  };
 
   const SelectItem = ({ label, subtitle, options, value, onChange }: any) => (
     <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
@@ -221,6 +276,93 @@ export default function Settings() {
                     <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90 transition-colors">Automatically check for updates</span>
                   </label>
                 </div>
+              </div>
+            )}
+
+              </div>
+            )}
+
+            {activeTab === 'Passwords' && (
+              <div className="flex flex-col animate-in fade-in duration-300 space-y-6 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 max-w-xl relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <input 
+                      type="text"
+                      placeholder="Search passwords"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-lg pl-10 pr-4 py-2.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 transition-all font-medium"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:bg-white/5 rounded-lg transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Import
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleCsvImport} 
+                    accept=".csv" 
+                    className="hidden" 
+                  />
+                </div>
+
+                <div className="text-[15px] font-medium text-[var(--theme-text)] opacity-60">
+                  {passwords.length} sites and apps
+                </div>
+
+                {/* Password List */}
+                <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredPasswords.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg group">
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                          <Key className="w-4 h-4 text-zinc-400" />
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-sm font-semibold truncate text-[var(--theme-text)] opacity-90">{p.url}</span>
+                          <span className="text-xs text-zinc-500 truncate">{p.username}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button 
+                           onClick={() => deletePassword(p.id)}
+                           className="p-2 text-rose-500/70 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {filteredPasswords.length === 0 && searchQuery && (
+                    <div className="py-12 text-center text-zinc-500 text-sm">
+                      No passwords found matching "{searchQuery}"
+                    </div>
+                  )}
+                </div>
+
+                {/* Import section from screenshot */}
+                {passwords.length === 0 && !searchQuery && (
+                   <div className="flex flex-col pt-4">
+                      <p className="text-[15px] text-zinc-400 mb-6">
+                        Import passwords from <span className="text-blue-400 cursor-pointer hover:underline">Chrome Browser</span>, <span className="text-blue-400 cursor-pointer hover:underline">Microsoft Edge Browser</span> or <span className="text-blue-400 cursor-pointer hover:underline">Firefox Browser</span>
+                      </p>
+                      
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-zinc-700/50 rounded-xl py-16 flex flex-col items-center justify-center gap-4 hover:border-[var(--theme-accent)]/50 hover:bg-white/5 transition-all cursor-pointer group"
+                      >
+                        <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Upload className="w-8 h-8 text-zinc-500" />
+                        </div>
+                        <span className="text-sm text-zinc-400 font-medium">Click to select a CSV file</span>
+                      </div>
+                   </div>
+                )}
               </div>
             )}
 

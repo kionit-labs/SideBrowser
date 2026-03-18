@@ -53,6 +53,7 @@ let tray: Tray | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 let store: any;
+let passwordsStore: any;
 
 let blocker: ElectronBlocker | null = null;
 async function setupAdblocker() {
@@ -356,6 +357,13 @@ app.whenReady().then(async () => {
       autoUpdate: true
     }
   } as any);
+  
+  passwordsStore = new Store({
+    name: 'side-browser-passwords',
+    template: {
+      passwords: []
+    }
+  } as any);
 
   // Initialize defaults if missing
   const defaults = {
@@ -431,6 +439,15 @@ ipcMain.on('set-store-val', (_event, key, val) => {
     if (val) blocker?.enableBlockingInSession(session.defaultSession);
     else blocker?.disableBlockingInSession(session.defaultSession);
   }
+});
+
+// Passwords IPC
+ipcMain.handle('get-passwords', () => passwordsStore?.get('passwords') || []);
+ipcMain.on('save-passwords', (_event, passwords) => {
+  passwordsStore?.set('passwords', passwords);
+});
+ipcMain.on('clear-passwords', () => {
+    passwordsStore?.set('passwords', []);
 });
 ipcMain.on('hide-window', () => {
     if (win) {

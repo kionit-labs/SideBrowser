@@ -55,6 +55,7 @@ var win = null;
 var tray = null;
 var VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 var store;
+var passwordsStore;
 var blocker = null;
 async function setupAdblocker() {
 	try {
@@ -280,6 +281,10 @@ electron.app.whenReady().then(async () => {
 			autoUpdate: true
 		}
 	});
+	passwordsStore = new electron_datastore.Store({
+		name: "side-browser-passwords",
+		template: { passwords: [] }
+	});
 	Object.entries({
 		transparency: .95,
 		adblockEnabled: true,
@@ -343,6 +348,13 @@ electron.ipcMain.on("set-store-val", (_event, key, val) => {
 	if (key === "transparency" && win) win.setOpacity(val);
 	if (key === "adblockEnabled") if (val) blocker?.enableBlockingInSession(electron.session.defaultSession);
 	else blocker?.disableBlockingInSession(electron.session.defaultSession);
+});
+electron.ipcMain.handle("get-passwords", () => passwordsStore?.get("passwords") || []);
+electron.ipcMain.on("save-passwords", (_event, passwords) => {
+	passwordsStore?.set("passwords", passwords);
+});
+electron.ipcMain.on("clear-passwords", () => {
+	passwordsStore?.set("passwords", []);
 });
 electron.ipcMain.on("hide-window", () => {
 	if (win) {

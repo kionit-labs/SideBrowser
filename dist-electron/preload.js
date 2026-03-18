@@ -13,6 +13,9 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
 	resizeWindow: (deltas) => electron.ipcRenderer.send("window-resize", deltas),
 	setAutoLaunch: (enabled) => electron.ipcRenderer.send("set-auto-launch", enabled),
 	setAlwaysOnTop: (enabled) => electron.ipcRenderer.send("set-always-on-top", enabled),
-	removeAllListeners: (channel) => electron.ipcRenderer.removeAllListeners(channel)
+	removeAllListeners: (channel) => electron.ipcRenderer.removeAllListeners(channel),
+	getPasswords: () => electron.ipcRenderer.invoke("get-passwords"),
+	savePasswords: (passwords) => electron.ipcRenderer.send("save-passwords", passwords),
+	clearPasswords: () => electron.ipcRenderer.send("clear-passwords")
 });
 //#endregion
