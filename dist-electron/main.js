@@ -353,10 +353,12 @@ electron.ipcMain.handle("get-passwords", () => passwordsStore?.get("passwords") 
 electron.ipcMain.handle("get-credentials-for-url", (_event, url) => {
 	const all = passwordsStore?.get("passwords") || [];
 	try {
-		const targetHost = new URL(url).hostname.replace("www.", "");
+		const targetHost = new URL(url).hostname.toLowerCase();
 		return all.filter((p) => {
 			try {
-				return new URL(p.url.startsWith("http") ? p.url : `https://${p.url}`).hostname.replace("www.", "") === targetHost;
+				const pUrl = p.url.startsWith("http") ? p.url : `https://${p.url}`;
+				const pHost = new URL(pUrl).hostname.toLowerCase();
+				return pHost === targetHost || targetHost.endsWith("." + pHost.replace("www.", "")) || pHost.endsWith("." + targetHost.replace("www.", "")) || targetHost.replace("www.", "") === pHost.replace("www.", "");
 			} catch {
 				return p.url.includes(targetHost);
 			}

@@ -6,12 +6,18 @@ window.addEventListener("load", () => {
 async function initAutofill() {
 	const electronAPI = window.electronAPI;
 	if (!electronAPI || !electronAPI.getCredentialsForUrl) return;
+	let attempts = 0;
+	const maxAttempts = 20;
 	const attemptAutofill = async () => {
+		attempts++;
 		const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
-		if (!credentials || credentials.length === 0) return;
+		if (!credentials || credentials.length === 0) {
+			if (attempts < maxAttempts) setTimeout(attemptAutofill, 500);
+			return;
+		}
 		const cred = credentials[0];
 		const passInput = document.querySelector("input[type=\"password\"]");
-		const userInput = document.querySelector("input[type=\"text\"], input[type=\"email\"], input[name*=\"user\" i], input[id*=\"user\" i], input[name*=\"login\" i], input[id*=\"login\" i]");
+		const userInput = document.querySelector("input[name*=\"login\" i], input[id*=\"login\" i], input[type=\"text\"], input[type=\"email\"], input[name*=\"user\" i], input[id*=\"user\" i], input[name*=\"identifier\" i]");
 		if (passInput && cred.password && !passInput.value) {
 			passInput.value = cred.password;
 			passInput.style.backgroundColor = "rgba(255, 255, 0, 0.05)";
@@ -19,14 +25,16 @@ async function initAutofill() {
 			passInput.dispatchEvent(new Event("change", { bubbles: true }));
 		}
 		if (userInput && cred.username && !userInput.value) {
-			userInput.value = cred.username;
-			userInput.style.backgroundColor = "rgba(255, 255, 0, 0.05)";
-			userInput.dispatchEvent(new Event("input", { bubbles: true }));
-			userInput.dispatchEvent(new Event("change", { bubbles: true }));
+			if (userInput.type !== "password") {
+				userInput.value = cred.username;
+				userInput.style.backgroundColor = "rgba(255, 255, 0, 0.05)";
+				userInput.dispatchEvent(new Event("input", { bubbles: true }));
+				userInput.dispatchEvent(new Event("change", { bubbles: true }));
+			}
 		}
+		if ((!passInput || !userInput) && attempts < maxAttempts) setTimeout(attemptAutofill, 500);
 	};
-	setTimeout(attemptAutofill, 1e3);
-	setTimeout(attemptAutofill, 3e3);
+	attemptAutofill();
 }
 function addCustomScrollbarStyle() {
 	const style = document.createElement("style");

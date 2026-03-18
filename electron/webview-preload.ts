@@ -1,4 +1,10 @@
-// This script is injected into every <webview> to customize its appearance and behavior.
+import { contextBridge, ipcRenderer } from 'electron';
+
+// Expose API to the guest page (webview)
+contextBridge.exposeInMainWorld('electronAPI', {
+  getCredentialsForUrl: (url: string) => ipcRenderer.invoke('get-credentials-for-url', url),
+});
+
 window.addEventListener('load', () => {
   addCustomScrollbarStyle();
   initAutofill();
@@ -6,48 +12,49 @@ window.addEventListener('load', () => {
 
 async function initAutofill() {
   const electronAPI = (window as any).electronAPI;
-  if (!electronAPI || !electronAPI.getCredentialsForUrl) return;
+  if (!electronAPI || !electronAPI.getCredentialsForUrl) {
+    console.warn('[Autofill] electronAPI not found in webview');
+    return;
+  }
 
   let attempts = 0;
-  const maxAttempts = 20; // 10 seconds total (500ms intervals)
+  const maxAttempts = 20; 
   
   const attemptAutofill = async () => {
     attempts++;
-    const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
-    if (!credentials || credentials.length === 0) {
-      if (attempts < maxAttempts) setTimeout(attemptAutofill, 500);
-      return;
-    }
-
-    const cred = credentials[0];
-    let filledAny = false;
-    
-    // Selectors optimized for Google, GitHub, and general sites
-    const passInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-    const userInput = document.querySelector('input[name*="login" i], input[id*="login" i], input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="identifier" i]') as HTMLInputElement;
-
-    if (passInput && cred.password && !passInput.value) {
-      passInput.value = cred.password;
-      passInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
-      passInput.dispatchEvent(new Event('input', { bubbles: true }));
-      passInput.dispatchEvent(new Event('change', { bubbles: true }));
-      filledAny = true;
-    }
-    
-    if (userInput && cred.username && !userInput.value) {
-      // Don't fill password field as username
-      if (userInput.type !== 'password') {
-        userInput.value = cred.username;
-        userInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
-        userInput.dispatchEvent(new Event('input', { bubbles: true }));
-        userInput.dispatchEvent(new Event('change', { bubbles: true }));
-        filledAny = true;
+    try {
+      const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
+      if (!credentials || credentials.length === 0) {
+        if (attempts < maxAttempts) setTimeout(attemptAutofill, 500);
+        return;
       }
-    }
 
-    // If we haven't found or filled everything, keep checking
-    if ((!passInput || !userInput) && attempts < maxAttempts) {
-        setTimeout(attemptAutofill, 500);
+      const cred = credentials[0];
+      
+      const passInput = document.querySelector('input[type="password"]') as HTMLInputElement;
+      const userInput = document.querySelector('input[name*="login" i], input[id*="login" i], input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="identifier" i]') as HTMLInputElement;
+
+      if (passInput && cred.password && (!passInput.value || passInput.value === '')) {
+        passInput.value = cred.password;
+        passInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
+        passInput.dispatchEvent(new Event('input', { bubbles: true }));
+        passInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      
+      if (userInput && cred.username && (!userInput.value || userInput.value === '')) {
+        if (userInput.type !== 'password') {
+          userInput.value = cred.username;
+          userInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
+          userInput.dispatchEvent(new Event('input', { bubbles: true }));
+          userInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
+      if ((!passInput || !userInput) && attempts < maxAttempts) {
+          setTimeout(attemptAutofill, 500);
+      }
+    } catch (err) {
+      console.error('[Autofill] Error:', err);
     }
   };
 
@@ -64,17 +71,21 @@ function addCustomScrollbarStyle() {
       background-color: transparent !important;
     }
     ::-webkit-scrollbar-track {
-      background: transparent !important;
+        background: transparent !important;
     }
     ::-webkit-scrollbar-thumb {
-      background-color: rgba(120, 120, 120, 0.4) !important;
-      border-radius: 10px !important;
-      border: 2px solid transparent !important;
-      background-clip: padding-box !important;
+        background-color: rgba(120, 120, 120, 0.4) !important;
+        border-radius: 10px !important;
+        border: 2px solid transparent !important;
+        background-clip: padding-box !important;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background-color: rgba(120, 120, 120, 0.7) !important;
+        background-color: rgba(120, 120, 120, 0.7) !important;
     }
   `;
-  document.head.appendChild(style);
+  if (document.head) {
+    document.head.appendChild(style);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => document.head.appendChild(style));
+  }
 }
