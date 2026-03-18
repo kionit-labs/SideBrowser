@@ -1,47 +1,51 @@
-# Side Browser
+<div align="center">
 
-A sleek, edge-snapping side browser panel for Windows. Pin it to the left or right edge of your screen, and it slides in when you hover the edge — just like a drawer.
+# 🌐 Side Browser
 
-Built with **Electron**, **React**, **TypeScript**, and **Tailwind CSS**.
+**A sleek, edge-snapping side browser panel for Windows.**
 
-## Features
+Pin it to the left or right edge of your screen — it slides in when you hover the edge, just like a drawer.
 
-- **Edge Snapping & Auto-Hide** — Docks to the left or right of your screen and slides out of view when you lose focus
-- **Tabbed Browsing** — Open multiple sites with a clean icon-based sidebar
-- **Built-in Ad Blocker** — Powered by Ghostery's adblocker engine
-- **Password Manager** — Import and manage credentials from CSV files
-- **Customizable Themes** — Multiple color themes with dark/light/system mode
-- **Adjustable Transparency** — Control window opacity for an overlay-style experience
-- **Address Bar** — Toggle a top or bottom address bar for quick navigation
-- **Device Emulation** — Switch between desktop and mobile user agents per tab
-- **Per-Tab Controls** — Mute audio, reload, copy URL, open in default browser
-- **Always On Top** — Optionally keep the panel above all other windows
-- **System Tray** — Minimize to tray for quick access
-- **Keyboard-Friendly** — Drag, resize, and navigate with ease
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white)](https://electronjs.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 
-## Screenshots
+</div>
 
-<!-- Add screenshots here -->
+---
 
-## Getting Started
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🧲 **Edge Snapping** | Docks to screen edges, auto-hides on blur |
+| 🗂️ **Tabbed Browsing** | Multiple sites with icon-based sidebar |
+| 🛡️ **Ad Blocker** | Built-in, powered by Ghostery engine |
+| 🔐 **Password Manager** | Import & manage credentials via CSV |
+| 🎨 **Themes** | Multiple colors + Dark / Light / System |
+| 🪟 **Transparency** | Adjustable window opacity |
+| 📍 **Address Bar** | Toggleable top or bottom URL bar |
+| 📱 **Device Emulation** | Switch desktop ↔ mobile UA per tab |
+| 🔇 **Per-Tab Audio** | Mute, reload, copy URL, open externally |
+| 📌 **Always On Top** | Optional floating mode |
+| 🖥️ **System Tray** | Minimize to tray |
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [npm](https://www.npmjs.com/)
-- Windows 10/11 (primary target; macOS/Linux may work with adjustments)
+- [Node.js](https://nodejs.org/) v18+
+- Windows 10 / 11
 
-### Installation
+### Install & Run
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/SideBrowser.git
+git clone https://github.com/kionit-labs/SideBrowser.git
 cd SideBrowser
 npm install
-```
-
-### Development
-
-```bash
 npm run dev
 ```
 
@@ -51,48 +55,55 @@ npm run dev
 npm run build
 ```
 
-## Tech Stack
+---
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Electron |
-| Frontend | React 19 + TypeScript |
-| Styling | Tailwind CSS 4 |
-| Animation | Framer Motion |
-| Icons | Lucide React |
-| Ad Blocking | @ghostery/adblocker-electron |
-| Storage | electron-datastore |
-| Focus Control | robotjs |
+## 🧱 Tech Stack
 
-## Project Structure
+<div align="center">
+
+| | Technology | Purpose |
+|---|-----------|---------|
+| ⚡ | **Electron 41** | Desktop shell |
+| ⚛️ | **React 19** | UI framework |
+| 🔷 | **TypeScript 5.9** | Type safety |
+| 💨 | **Tailwind CSS 4** | Styling |
+| 🎞️ | **Framer Motion** | Animations |
+| 🎯 | **Lucide React** | Icons |
+| 🛡️ | **Ghostery Adblocker** | Ad blocking |
+| 💾 | **electron-datastore** | Persistent storage |
+
+</div>
+
+---
+
+## 📁 Project Structure
 
 ```
 SideBrowser/
-├── electron/           # Main process & preload scripts
-│   ├── main.ts         # Electron main process
-│   ├── preload.ts      # IPC bridge for renderer
-│   └── webview-preload.ts  # Injected into webviews
-├── src/                # React frontend
-│   ├── App.tsx         # Root layout, sidebar, tabs
-│   ├── Browser.tsx     # Webview wrapper component
-│   ├── Home.tsx        # Home/new tab page
-│   ├── Settings.tsx    # Settings panel
-│   ├── contexts/       # React contexts (settings)
-│   └── utils/          # Theme utilities
-├── public/             # Static assets
-├── index.html          # Entry HTML
-├── vite.config.ts      # Vite + Electron config
+├── electron/                # Main process
+│   ├── main.ts              # Window, tray, edge-snapping
+│   ├── preload.ts           # IPC bridge
+│   └── webview-preload.ts   # Webview injection
+├── src/                     # React frontend
+│   ├── App.tsx              # Layout, sidebar, tabs
+│   ├── Browser.tsx          # Webview wrapper
+│   ├── Home.tsx             # New tab page
+│   ├── Settings.tsx         # Settings panel
+│   ├── contexts/            # Settings context
+│   └── utils/               # Theme engine
+├── public/                  # Static assets
 └── package.json
 ```
 
-## License
+---
 
-This project is licensed under the [MIT License](LICENSE).
+## 📄 License
 
-## Contributing
+[MIT](LICENSE) © 2026 [kionit-labs](https://github.com/kionit-labs)
 
-Contributions are welcome! Feel free to open issues and pull requests.
+---
 
-## Acknowledgments
+## 🤝 Contributing
 
-Inspired by [SlideBrowser](https://github.com/nicollite/SlideBrowser).
+Contributions, issues, and feature requests are welcome!
+Feel free to open a [pull request](https://github.com/kionit-labs/SideBrowser/pulls) or [issue](https://github.com/kionit-labs/SideBrowser/issues).
