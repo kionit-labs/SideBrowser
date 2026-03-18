@@ -464,10 +464,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Global Drag Handle - TOP LEVEL OVERLAY */}
+      {/* Global Drag Handle - Excludes sidebar area (68px) so nav buttons remain clickable */}
       <div 
-        className="absolute top-0 left-0 right-0 h-10 z-[9999] pointer-events-auto" 
-        style={{ WebkitAppRegion: 'drag' } as any} 
+        className="absolute top-0 left-0 h-10 z-[9999] pointer-events-auto" 
+        style={{ WebkitAppRegion: 'drag', right: isSidebarHidden ? '0px' : '68px' } as any} 
       />
 
       {/* Address Bar Detection Zones - THIN STRIP to prevent click-blocking */}

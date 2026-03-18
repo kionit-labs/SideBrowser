@@ -15,7 +15,6 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
 	setAlwaysOnTop: (enabled) => electron.ipcRenderer.send("set-always-on-top", enabled),
 	removeAllListeners: (channel) => electron.ipcRenderer.removeAllListeners(channel),
 	getPasswords: () => electron.ipcRenderer.invoke("get-passwords"),
-	getCredentialsForUrl: (url) => electron.ipcRenderer.invoke("get-credentials-for-url", url),
 	savePasswords: (passwords) => electron.ipcRenderer.send("save-passwords", passwords),
 	clearPasswords: () => electron.ipcRenderer.send("clear-passwords")
 });

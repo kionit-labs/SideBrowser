@@ -14,9 +14,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAutoLaunch: (enabled: boolean) => ipcRenderer.send('set-auto-launch', enabled),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.send('set-always-on-top', enabled),
   removeAllListeners: (channel: string) => ipcRenderer.removeAllListeners(channel),
-  // Password Manager
+  // Password Manager (storage only)
   getPasswords: () => ipcRenderer.invoke('get-passwords'),
-  getCredentialsForUrl: (url: string) => ipcRenderer.invoke('get-credentials-for-url', url),
   savePasswords: (passwords: any[]) => ipcRenderer.send('save-passwords', passwords),
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
 });
