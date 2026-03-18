@@ -443,6 +443,25 @@ ipcMain.on('set-store-val', (_event, key, val) => {
 
 // Passwords IPC
 ipcMain.handle('get-passwords', () => passwordsStore?.get('passwords') || []);
+
+// Auto-fill logic: find matching passwords for a given URL
+ipcMain.handle('get-credentials-for-url', (_event, url: string) => {
+    const all = passwordsStore?.get('passwords') || [];
+    try {
+        const targetHost = new URL(url).hostname.replace('www.', '');
+        return all.filter((p: any) => {
+            try {
+                const pHost = new URL(p.url.startsWith('http') ? p.url : `https://${p.url}`).hostname.replace('www.', '');
+                return pHost === targetHost;
+            } catch {
+                return p.url.includes(targetHost);
+            }
+        });
+    } catch {
+        return [];
+    }
+});
+
 ipcMain.on('save-passwords', (_event, passwords) => {
   passwordsStore?.set('passwords', passwords);
 });

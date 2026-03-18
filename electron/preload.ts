@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAllListeners: (channel: string) => ipcRenderer.removeAllListeners(channel),
   // Password Manager
   getPasswords: () => ipcRenderer.invoke('get-passwords'),
+  getCredentialsForUrl: (url: string) => ipcRenderer.invoke('get-credentials-for-url', url),
   savePasswords: (passwords: any[]) => ipcRenderer.send('save-passwords', passwords),
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
 });

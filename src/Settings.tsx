@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Minus, Plus, ChevronRight, Search, Upload, Trash2, Key, ExternalLink } from 'lucide-react';
+import { Minus, Plus, ChevronRight, Search, Upload, Trash2, Key, ExternalLink, Eye, EyeOff, Copy, Check } from 'lucide-react';
 import { useSettings, useTranslation } from './contexts/SettingsContext';
 
 export default function Settings() {
@@ -11,7 +11,19 @@ export default function Settings() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [passwords, setPasswords] = useState<any[]>([]);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<number, boolean>>({});
+  const [copiedId, setCopiedId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const togglePasswordVisibility = (id: number) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyToClipboard = (text: string, id: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   useEffect(() => {
     if (activeTab === 'Passwords') {
@@ -321,7 +333,27 @@ export default function Settings() {
                         </div>
                         <div className="flex flex-col overflow-hidden">
                           <span className="text-sm font-semibold truncate text-[var(--theme-text)] opacity-90">{p.url}</span>
-                          <span className="text-xs text-zinc-500 truncate">{p.username}</span>
+                          <div className="flex items-center gap-2">
+                             <span className="text-xs text-zinc-500 truncate">{p.username}</span>
+                             <span className="text-zinc-700">•</span>
+                             <div className="flex items-center gap-1.5 min-w-[80px]">
+                                <span className="text-xs font-mono text-zinc-500">
+                                  {visiblePasswords[p.id] ? p.password : '••••••••'}
+                                </span>
+                                <button 
+                                  onClick={() => togglePasswordVisibility(p.id)}
+                                  className="p-1 hover:bg-white/10 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
+                                >
+                                  {visiblePasswords[p.id] ? <EyeOff size={11} /> : <Eye size={11} />}
+                                </button>
+                                <button 
+                                  onClick={() => copyToClipboard(p.password, p.id)}
+                                  className="p-1 hover:bg-white/10 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
+                                >
+                                  {copiedId === p.id ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+                                </button>
+                             </div>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

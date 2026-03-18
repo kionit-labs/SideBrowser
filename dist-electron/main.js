@@ -350,6 +350,21 @@ electron.ipcMain.on("set-store-val", (_event, key, val) => {
 	else blocker?.disableBlockingInSession(electron.session.defaultSession);
 });
 electron.ipcMain.handle("get-passwords", () => passwordsStore?.get("passwords") || []);
+electron.ipcMain.handle("get-credentials-for-url", (_event, url) => {
+	const all = passwordsStore?.get("passwords") || [];
+	try {
+		const targetHost = new URL(url).hostname.replace("www.", "");
+		return all.filter((p) => {
+			try {
+				return new URL(p.url.startsWith("http") ? p.url : `https://${p.url}`).hostname.replace("www.", "") === targetHost;
+			} catch {
+				return p.url.includes(targetHost);
+			}
+		});
+	} catch {
+		return [];
+	}
+});
 electron.ipcMain.on("save-passwords", (_event, passwords) => {
 	passwordsStore?.set("passwords", passwords);
 });
