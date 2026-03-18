@@ -238,8 +238,6 @@ function createWindow() {
   // Apply high listener limits and TRANSPARENT background to EVERY webview that attaches
   win.webContents.on('did-attach-webview', (_event, webContents) => {
      webContents.setMaxListeners(100);
-     // This is CRITICAL for resolving the "white corners" issue - it forces the webview guest to be transparent.
-     (webContents as any).setBackgroundColor('#00000000');
   });
 
   // Sync initial opacity from store

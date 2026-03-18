@@ -24,6 +24,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const [currentUrl, setCurrentUrl] = useState(url);
   const [inputValue, setInputValue] = useState(url);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const { settings } = useSettings();
   const addressBarPos = settings.addressBar;
 
@@ -147,7 +148,8 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   // We use the global --app-radius (24px) for perfect synchronization with the window edges.
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
-  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered);
+  // Show bar if triggered by App (hover edge), OR if input is focused, OR if hovering the bar itself
+  const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered || isInputFocused || isHovered);
 
   return (
     <div 
@@ -175,7 +177,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       {/* The Address Bar */}
       {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (
         <div 
-          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-50 ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-[10005] ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
           style={{ backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 95%, transparent)' }}
         >
           <div className="flex items-center justify-center p-1.5 rounded-md bg-black/5 dark:bg-white/5 text-[var(--theme-text)] opacity-60">

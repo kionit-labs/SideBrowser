@@ -188,7 +188,6 @@ function createWindow() {
 	win.webContents.setMaxListeners(100);
 	win.webContents.on("did-attach-webview", (_event, webContents) => {
 		webContents.setMaxListeners(100);
-		webContents.setBackgroundColor("#00000000");
 	});
 	const savedOpacity = store.get("transparency") ?? .95;
 	win.setOpacity(savedOpacity);
