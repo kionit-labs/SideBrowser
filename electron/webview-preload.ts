@@ -8,36 +8,50 @@ async function initAutofill() {
   const electronAPI = (window as any).electronAPI;
   if (!electronAPI || !electronAPI.getCredentialsForUrl) return;
 
-  // Wait for dynamic forms and ensure we catch them
+  let attempts = 0;
+  const maxAttempts = 20; // 10 seconds total (500ms intervals)
+  
   const attemptAutofill = async () => {
+    attempts++;
     const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
-    if (!credentials || credentials.length === 0) return;
+    if (!credentials || credentials.length === 0) {
+      if (attempts < maxAttempts) setTimeout(attemptAutofill, 500);
+      return;
+    }
 
     const cred = credentials[0];
+    let filledAny = false;
     
-    // Expanded selectors for better site compatibility (including GitHub)
+    // Selectors optimized for Google, GitHub, and general sites
     const passInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-    const userInput = document.querySelector('input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="login" i], input[id*="login" i]') as HTMLInputElement;
+    const userInput = document.querySelector('input[name*="login" i], input[id*="login" i], input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="identifier" i]') as HTMLInputElement;
 
     if (passInput && cred.password && !passInput.value) {
       passInput.value = cred.password;
       passInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
       passInput.dispatchEvent(new Event('input', { bubbles: true }));
       passInput.dispatchEvent(new Event('change', { bubbles: true }));
+      filledAny = true;
     }
     
     if (userInput && cred.username && !userInput.value) {
-      userInput.value = cred.username;
-      userInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
-      userInput.dispatchEvent(new Event('input', { bubbles: true }));
-      userInput.dispatchEvent(new Event('change', { bubbles: true }));
+      // Don't fill password field as username
+      if (userInput.type !== 'password') {
+        userInput.value = cred.username;
+        userInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
+        userInput.dispatchEvent(new Event('input', { bubbles: true }));
+        userInput.dispatchEvent(new Event('change', { bubbles: true }));
+        filledAny = true;
+      }
+    }
+
+    // If we haven't found or filled everything, keep checking
+    if ((!passInput || !userInput) && attempts < maxAttempts) {
+        setTimeout(attemptAutofill, 500);
     }
   };
 
-  // Initial attempt
-  setTimeout(attemptAutofill, 1000);
-  // Second attempt for late-loading forms
-  setTimeout(attemptAutofill, 3000);
+  attemptAutofill();
 }
 
 function addCustomScrollbarStyle() {
