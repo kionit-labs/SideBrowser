@@ -34,6 +34,12 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
 
+  // Use a ref for settings to avoid stale closures in webview event handlers
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   const syncParentState = (webview: any) => {
     const u = webview.getURL();
     const t = webview.getTitle();
@@ -87,7 +93,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       setCurrentUrl(webview.getURL());
       
       // Auto-fill: inject credentials via executeJavaScript
-      if (settings.passwordManagerEnabled && (window as any).electronAPI?.getCredentialsForUrl) {
+      if (settingsRef.current.passwordManagerEnabled && (window as any).electronAPI?.getCredentialsForUrl) {
         const pageUrl = webview.getURL();
         (window as any).electronAPI.getCredentialsForUrl(pageUrl).then((credentials: any[]) => {
           if (!credentials || credentials.length === 0) return;
