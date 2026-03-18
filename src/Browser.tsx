@@ -28,6 +28,29 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const { settings } = useSettings();
   const addressBarPos = settings.addressBar;
 
+  // Use a ref for onStateChange to avoid stale closures in webview listeners
+  const onStateChangeRef = useRef(onStateChange);
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+
+  const syncParentState = (webview: any) => {
+    const u = webview.getURL();
+    const t = webview.getTitle();
+    let d = '';
+    try {
+      d = new URL(u).hostname.replace('www.', '');
+    } catch (e) {}
+
+    onStateChangeRef.current({
+      url: u,
+      title: t,
+      domain: d,
+      canGoBack: webview.canGoBack(),
+      canGoForward: webview.canGoForward()
+    });
+  };
+
   useImperativeHandle(ref, () => ({
     goBack: () => webviewRef.current?.goBack(),
     goForward: () => webviewRef.current?.goForward(),
@@ -60,33 +83,28 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     if (!webview) return;
 
     const onDidFinishLoad = () => {
-      const currentUrl = webview.getURL();
-      let domain = '';
-      try {
-        domain = new URL(currentUrl).hostname.replace('www.', '');
-      } catch (e) {}
-
-      onStateChange({
-        url: currentUrl,
-        title: webview.getTitle(),
-        domain,
-        canGoBack: webview.canGoBack(),
-        canGoForward: webview.canGoForward()
-      });
-      setCurrentUrl(currentUrl);
+      syncParentState(webview);
+      setCurrentUrl(webview.getURL());
     };
 
     const onLoadCommit = (e: any) => {
        if (e.isMainFrame) {
          setCurrentUrl(e.url);
+         syncParentState(webview);
        }
+    };
+
+    const onTitleUpdate = () => {
+      syncParentState(webview);
     };
 
     webview.addEventListener('did-finish-load', onDidFinishLoad);
     webview.addEventListener('load-commit', onLoadCommit);
+    webview.addEventListener('page-title-updated', onTitleUpdate);
     return () => {
       webview.removeEventListener('did-finish-load', onDidFinishLoad);
       webview.removeEventListener('load-commit', onLoadCommit);
+      webview.removeEventListener('page-title-updated', onTitleUpdate);
     };
   }, []);
 
@@ -114,6 +132,20 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     // Update local state immediately to avoid "jump-back" to previous URL
     setCurrentUrl(target);
     setInputValue(target);
+    
+    // Also notify parent immediately so UI (sidebar/context menu) feels snappy
+    let d = '';
+    try {
+      d = new URL(target).hostname.replace('www.', '');
+    } catch (e) {}
+
+    onStateChangeRef.current({
+        url: target,
+        title: d, // Temporary title until page loads
+        domain: d,
+        canGoBack: webviewRef.current?.canGoBack() || false,
+        canGoForward: webviewRef.current?.canGoForward() || false
+    });
     
     webviewRef.current?.loadURL(target);
     webviewRef.current?.focus();
