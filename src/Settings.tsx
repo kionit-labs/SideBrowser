@@ -279,9 +279,6 @@ export default function Settings() {
               </div>
             )}
 
-              </div>
-            )}
-
             {activeTab === 'Passwords' && (
               <div className="flex flex-col animate-in fade-in duration-300 space-y-6 pt-2">
                 <div className="flex items-center justify-between">
