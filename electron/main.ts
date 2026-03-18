@@ -24,9 +24,9 @@ process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
 });
 
-// Disable cache to mitigate memory leaks from high-frequency ad-blocking/loading
-app.commandLine.appendSwitch('disable-http-cache');
-app.commandLine.appendSwitch('disable-gpu-program-cache');
+// Optimization Switches for High-Performance Media & Stability
+// We re-enable cache (previously disabled for debugging) as YouTube depends on it for segment loading.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();

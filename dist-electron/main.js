@@ -38,8 +38,7 @@ process.on("unhandledRejection", (reason) => {
 process.on("uncaughtException", (error) => {
 	console.error("Uncaught Exception:", error);
 });
-electron.app.commandLine.appendSwitch("disable-http-cache");
-electron.app.commandLine.appendSwitch("disable-gpu-program-cache");
+electron.app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 if (!electron.app.requestSingleInstanceLock()) electron.app.quit();
 else electron.app.on("second-instance", () => {
 	if (win) {
