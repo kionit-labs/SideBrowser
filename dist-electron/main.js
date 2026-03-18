@@ -39,6 +39,8 @@ process.on("uncaughtException", (error) => {
 	console.error("Uncaught Exception:", error);
 });
 electron.app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+electron.app.commandLine.appendSwitch("disable-features", "IsolateOrigins,site-per-process,AudioServiceSandbox");
+electron.app.commandLine.appendSwitch("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 if (!electron.app.requestSingleInstanceLock()) electron.app.quit();
 else electron.app.on("second-instance", () => {
 	if (win) {

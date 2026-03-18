@@ -25,8 +25,10 @@ process.on('uncaughtException', (error) => {
 });
 
 // Optimization Switches for High-Performance Media & Stability
-// We re-enable cache (previously disabled for debugging) as YouTube depends on it for segment loading.
+// We re-enable cache (YouTube depends on it) and disable process-level isolation that can interfere with AdBlockers.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process,AudioServiceSandbox');
+app.commandLine.appendSwitch('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
