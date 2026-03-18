@@ -1,7 +1,33 @@
 //#region electron/webview-preload.ts
 window.addEventListener("load", () => {
 	addCustomScrollbarStyle();
+	initAutofill();
 });
+async function initAutofill() {
+	const electronAPI = window.electronAPI;
+	if (!electronAPI || !electronAPI.getCredentialsForUrl) return;
+	const attemptAutofill = async () => {
+		const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
+		if (!credentials || credentials.length === 0) return;
+		const cred = credentials[0];
+		const passInput = document.querySelector("input[type=\"password\"]");
+		const userInput = document.querySelector("input[type=\"text\"], input[type=\"email\"], input[name*=\"user\" i], input[id*=\"user\" i], input[name*=\"login\" i], input[id*=\"login\" i]");
+		if (passInput && cred.password && !passInput.value) {
+			passInput.value = cred.password;
+			passInput.style.backgroundColor = "rgba(255, 255, 0, 0.05)";
+			passInput.dispatchEvent(new Event("input", { bubbles: true }));
+			passInput.dispatchEvent(new Event("change", { bubbles: true }));
+		}
+		if (userInput && cred.username && !userInput.value) {
+			userInput.value = cred.username;
+			userInput.style.backgroundColor = "rgba(255, 255, 0, 0.05)";
+			userInput.dispatchEvent(new Event("input", { bubbles: true }));
+			userInput.dispatchEvent(new Event("change", { bubbles: true }));
+		}
+	};
+	setTimeout(attemptAutofill, 1e3);
+	setTimeout(attemptAutofill, 3e3);
+}
 function addCustomScrollbarStyle() {
 	const style = document.createElement("style");
 	style.id = "slide-browser-custom-scrollbar";

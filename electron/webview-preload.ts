@@ -8,32 +8,39 @@ async function initAutofill() {
   const electronAPI = (window as any).electronAPI;
   if (!electronAPI || !electronAPI.getCredentialsForUrl) return;
 
-  // Wait a bit for dynamic forms
-  setTimeout(async () => {
+  // Wait for dynamic forms and ensure we catch them
+  const attemptAutofill = async () => {
     const credentials = await electronAPI.getCredentialsForUrl(window.location.href);
     if (!credentials || credentials.length === 0) return;
 
-    const cred = credentials[0]; // Take the first match
+    const cred = credentials[0];
     
-    // Find inputs
+    // Expanded selectors for better site compatibility (including GitHub)
     const passInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-    const userInput = document.querySelector('input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i]') as HTMLInputElement;
+    const userInput = document.querySelector('input[type="text"], input[type="email"], input[name*="user" i], input[id*="user" i], input[name*="login" i], input[id*="login" i]') as HTMLInputElement;
 
-    if (passInput && cred.password) {
+    if (passInput && cred.password && !passInput.value) {
       passInput.value = cred.password;
       passInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
       passInput.dispatchEvent(new Event('input', { bubbles: true }));
       passInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
     
-    if (userInput && cred.username) {
+    if (userInput && cred.username && !userInput.value) {
       userInput.value = cred.username;
       userInput.style.backgroundColor = 'rgba(255, 255, 0, 0.05)';
       userInput.dispatchEvent(new Event('input', { bubbles: true }));
       userInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
-  }, 1500);
+  };
+
+  // Initial attempt
+  setTimeout(attemptAutofill, 1000);
+  // Second attempt for late-loading forms
+  setTimeout(attemptAutofill, 3000);
 }
+
+function addCustomScrollbarStyle() {
   const style = document.createElement('style');
   style.id = 'slide-browser-custom-scrollbar';
   style.innerHTML = `
