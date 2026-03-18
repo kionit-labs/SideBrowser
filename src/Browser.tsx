@@ -9,13 +9,14 @@ export interface BrowserRef {
   loadURL: (url: string) => void;
   toggleMute: () => boolean;
   toggleDevice: () => boolean;
+  setGlobalMute: (muted: boolean) => void;
 }
 
 interface BrowserProps {
   url: string;
   isActive: boolean;
   isAddressBarTriggered: boolean;
-  onStateChange: (state: { url: string; title: string; canGoBack: boolean; canGoForward: boolean }) => void;
+  onStateChange: (state: { url: string; title: string; domain?: string; canGoBack: boolean; canGoForward: boolean }) => void;
 }
 
 const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onStateChange }, ref) => {
@@ -48,6 +49,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       webviewRef.current.setUserAgent(isMobile ? desktopUA : mobileUA);
       webviewRef.current.reload();
       return !isMobile;
+    },
+    setGlobalMute: (muted: boolean) => {
+      webviewRef.current?.setAudioMuted(muted);
     }
   }));
 
@@ -56,13 +60,20 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     if (!webview) return;
 
     const onDidFinishLoad = () => {
+      const currentUrl = webview.getURL();
+      let domain = '';
+      try {
+        domain = new URL(currentUrl).hostname.replace('www.', '');
+      } catch (e) {}
+
       onStateChange({
-        url: webview.getURL(),
+        url: currentUrl,
         title: webview.getTitle(),
+        domain,
         canGoBack: webview.canGoBack(),
         canGoForward: webview.canGoForward()
       });
-      setCurrentUrl(webview.getURL());
+      setCurrentUrl(currentUrl);
     };
 
     const onLoadCommit = (e: any) => {

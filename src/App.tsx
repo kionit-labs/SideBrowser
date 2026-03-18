@@ -276,7 +276,7 @@ export default function App() {
                   isActive={activeTabId === tab.id && view === 'browser'} 
                   isAddressBarTriggered={isHoveringAddressBarEdge}
                   onStateChange={(state) => {
-                    setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, url: state.url, title: state.title } : t));
+                    setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, url: state.url, title: state.title, domain: state.domain || t.domain } : t));
                   }} 
                 />
              </div>
