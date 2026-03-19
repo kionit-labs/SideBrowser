@@ -614,7 +614,7 @@ ipcMain.on('set-auto-hide', (_event, enabled) => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.on('check-for-updates', () => {
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {
       win?.webContents.send('update-message', 'Error checking for updates', true);
     });
   } else {
@@ -641,7 +641,7 @@ autoUpdater.on('error', (err) => {
 autoUpdater.on('download-progress', (progressObj) => {
   win?.webContents.send('update-message', `Downloading: ${Math.round(progressObj.percent)}%`, false);
 });
-autoUpdater.on('update-downloaded', (info) => {
+autoUpdater.on('update-downloaded', () => {
   win?.webContents.send('update-message', 'Update downloaded. Restart to install.', false);
 });
 
