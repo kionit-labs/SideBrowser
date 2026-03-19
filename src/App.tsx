@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { 
   Home, Settings as SettingsIcon, ArrowLeft, ArrowRight, ChevronsLeft, 
   Volume2, Monitor, RotateCw, ExternalLink, Copy, Layers, 
-  Smartphone, Database, Trash2, Sidebar as SidebarIcon, MinusCircle, VolumeX
+  Smartphone, Database, Trash2, Sidebar as SidebarIcon, MinusCircle, VolumeX,
+  Globe
 } from 'lucide-react';
 import Browser, { type BrowserRef } from './Browser';
 import Settings from './Settings';
 import HomeView from './Home';
-import { useSettings } from './contexts/SettingsContext';
+import { useSettings, useTranslation } from './contexts/SettingsContext';
 import { getThemeVariables } from './utils/themes';
 
 interface Tab {
@@ -21,9 +22,72 @@ interface Tab {
   isMobile: boolean;
 }
 
+const TabIcon = ({ domain, title, className = "w-full h-full" }: { domain: string, title: string, className?: string }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (!domain) {
+      setError(true);
+      return;
+    }
+    
+    setLoaded(false);
+    setError(false);
+
+    // Fail-safe: if image hasn't loaded after 2 seconds, assume error/slow and show globe
+    const timer = setTimeout(() => {
+      if (!loaded) setError(true);
+    }, 2000);
+
+    // Immediate check for cached images
+    if (imgRef.current?.complete) {
+      setLoaded(true);
+      clearTimeout(timer);
+    }
+
+    return () => clearTimeout(timer);
+  }, [domain]);
+
+  // If no domain, just show the fallback immediately
+  if (!domain) {
+    return (
+      <div className={`relative ${className} flex items-center justify-center bg-white overflow-hidden`}>
+         <Globe size={18} strokeWidth={1.5} className="text-zinc-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`relative ${className} flex items-center justify-center bg-white overflow-hidden`}>
+      {!loaded && !error && (
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-400 bg-white z-10 animate-pulse">
+          <Globe size={18} strokeWidth={1.5} />
+        </div>
+      )}
+      <img 
+        ref={imgRef}
+        key={domain}
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
+        alt={title} 
+        className={`w-full h-full object-cover relative z-20 transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-400 bg-white z-30">
+          <Globe size={18} strokeWidth={1.5} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
   const { settings, isLoading } = useSettings();
+  const { t } = useTranslation();
   const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
   
   const [view, setView] = useState<'home' | 'browser' | 'settings'>('home');
@@ -115,6 +179,16 @@ export default function App() {
       };
     }
   }, [isResizing]);
+
+  // Address Bar Auto-hide logic
+  useEffect(() => {
+    if (isHoveringAddressBarEdge && !Object.values(browserRefs.current).some(ref => (ref as any)?.isInputFocused)) {
+      const timer = setTimeout(() => {
+        setIsHoveringAddressBarEdge(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isHoveringAddressBarEdge]);
 
   const handleNavigate = (rawUrl: string) => {
     let url = rawUrl;
@@ -353,7 +427,7 @@ export default function App() {
                     }} 
                     className={`w-10 h-10 flex items-center justify-center rounded-full bg-white transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'border-2 border-[#6ea0d3] scale-105 shadow-md' : 'border-0 hover:scale-105'}`}
                   >
-                    <img src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=64`} alt={tab.title} className="w-full h-full object-cover scale-100" onError={(e) => { (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-globe"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>'; }} />
+                    <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
                   </button>
 
                   {/* Tab Context Menu Overlay */}
@@ -362,7 +436,7 @@ export default function App() {
                       {/* Header */}
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                          <img src={`https://www.google.com/s2/favicons?domain=${tab.domain}&sz=64`} alt={tab.title} className="w-full h-full object-cover scale-100" onError={(e) => { (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>'; }} />
+                          <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
                         </div>
                         <div className="flex flex-col overflow-hidden leading-tight justify-center">
                           <span className="text-[var(--theme-text)] font-semibold truncate text-sm">{tab.title}</span>
@@ -372,19 +446,19 @@ export default function App() {
                       
                       {/* Actions Row */}
                       <div className="flex items-center justify-between text-[var(--theme-text)]">
-                        <button onClick={() => browserRefs.current[tab.id]?.goBack()} title="Back" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.goForward()} title="Forward" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.reload()} title="Refresh" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
-                        <button onClick={() => window.open(tab.url, '_blank')} title="Open in default browser" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
-                        <button onClick={() => navigator.clipboard.writeText(tab.url)} title="Copy URL" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
-                        <button title="Independent window" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
+                        <button onClick={() => browserRefs.current[tab.id]?.goBack()} title={t('app.sidebar.back')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
+                        <button onClick={() => browserRefs.current[tab.id]?.goForward()} title={t('app.sidebar.forward')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
+                        <button onClick={() => browserRefs.current[tab.id]?.reload()} title={t('app.sidebar.refresh')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
+                        <button onClick={() => window.open(tab.url, '_blank')} title={t('app.sidebar.openExternal')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
+                        <button onClick={() => navigator.clipboard.writeText(tab.url)} title={t('app.sidebar.copyUrl')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
+                        <button title={t('app.sidebar.independentWindow')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
                         
                         <button 
                           onClick={() => {
                             const muted = browserRefs.current[tab.id]?.toggleMute();
                             setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMuted: !!muted } : t));
                           }} 
-                          title={tab.isMuted ? "Unmute" : "Mute"} 
+                          title={tab.isMuted ? t('app.sidebar.unmute') : t('app.sidebar.mute')} 
                           className={`p-1.5 rounded-md transition-colors ${tab.isMuted ? 'text-red-500 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                         >
                           <Volume2 size={18} className={tab.isMuted ? 'opacity-100' : ''} />
@@ -395,14 +469,14 @@ export default function App() {
                             const mobile = browserRefs.current[tab.id]?.toggleDevice();
                             setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMobile: !!mobile } : t));
                           }} 
-                          title="Device Emulation" 
+                          title={t('app.sidebar.deviceEmulation')} 
                           className={`p-1.5 rounded-md transition-colors ${tab.isMobile ? 'text-blue-500 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                         >
                           <Smartphone size={18} />
                         </button>
                         
-                        <button title="Remove website data" className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
-                        <button onClick={() => handleCloseTab(tab.id)} title="Delete tab" className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
+                        <button title={t('app.sidebar.clearData')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
+                        <button onClick={() => handleCloseTab(tab.id)} title={t('app.sidebar.deleteTab')} className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   )}
@@ -416,35 +490,35 @@ export default function App() {
             <div className="grid grid-cols-2 gap-1.5 w-full text-[var(--theme-text)] opacity-40">
               <button 
                 onClick={() => { if ((window as any).electronAPI) (window as any).electronAPI.hideWindow() }} 
-                title="Hide Window"
+                title={t('app.sidebar.hideWindow')}
                 className="flex items-center justify-center hover:opacity-100 transition-opacity p-1"
               >
                 <ChevronsLeft size={18} />
               </button>
               <button 
                 onClick={() => setIsAutoHideLossFocus(!isAutoHideLossFocus)}
-                title="Auto hide window focus"
+                title={t('app.sidebar.autoHideFocus')}
                 className={`flex items-center justify-center transition-all p-1 ${isAutoHideLossFocus ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <MinusCircle size={18} />
               </button>
               <button 
                 onClick={() => setIsGlobalMuted(!isGlobalMuted)}
-                title="Mute all pages"
+                title={t('app.sidebar.muteAll')}
                 className={`flex items-center justify-center transition-all p-1 ${isGlobalMuted ? 'text-red-500 opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 {isGlobalMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
               </button>
               <button 
                 onClick={() => setIsSidebarHidden(!isSidebarHidden)}
-                title="Hide Sidebar"
+                title={t('app.sidebar.hideSidebar')}
                 className={`flex items-center justify-center transition-all p-1 ${isSidebarHidden ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <SidebarIcon size={18} />
               </button>
               <button 
                 onClick={() => setIsAutoEdgeSnapping(!isAutoEdgeSnapping)}
-                title="Auto edge snapping"
+                title={t('app.sidebar.autoSnap')}
                 className={`flex items-center justify-center transition-all p-1 ${isAutoEdgeSnapping ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <Monitor size={18} />
@@ -454,7 +528,7 @@ export default function App() {
                   setView('settings');
                   setContextMenuTabId(null);
                 }}
-                title="Settings"
+                title={t('app.sidebar.settings')}
                 className={`flex items-center justify-center transition-all p-1 ${view === 'settings' ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
                 <SettingsIcon size={18} />
@@ -473,21 +547,23 @@ export default function App() {
       {/* Address Bar Detection Zones - THIN STRIP to prevent click-blocking */}
       {settings.addressBar === 'Top' && (
         <div 
-          className="absolute top-0 left-0 right-0 h-1 z-[10000] bg-transparent pointer-events-auto"
+          className="absolute top-0 left-0 right-0 h-4 z-[10000] bg-transparent pointer-events-auto"
           style={{ WebkitAppRegion: 'no-drag' } as any}
           onMouseEnter={() => {
             setIsHoveringAddressBarEdge(true);
-            // Keep it open for a bit so the user can move the mouse into the actual bar
-            setTimeout(() => setIsHoveringAddressBarEdge(false), 2000);
+          }}
+          onMouseMove={() => {
+            // Re-trigger show on move if we are in the zone
+            if (!isHoveringAddressBarEdge) setIsHoveringAddressBarEdge(true);
           }}
         />
       )}
       {settings.addressBar === 'Bottom' && (
         <div 
-          className="absolute bottom-0 left-0 right-0 h-1 z-[10000] bg-transparent pointer-events-auto"
-          onMouseEnter={() => {
-            setIsHoveringAddressBarEdge(true);
-            setTimeout(() => setIsHoveringAddressBarEdge(false), 2000);
+          className="absolute bottom-0 left-0 right-0 h-4 z-[10000] bg-transparent pointer-events-auto"
+          onMouseEnter={() => setIsHoveringAddressBarEdge(true)}
+          onMouseMove={() => {
+            if (!isHoveringAddressBarEdge) setIsHoveringAddressBarEdge(true);
           }}
         />
       )}

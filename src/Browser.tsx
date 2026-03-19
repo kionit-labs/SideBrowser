@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { useSettings } from './contexts/SettingsContext';
+import { motion } from 'framer-motion';
+import { useSettings, useTranslation } from './contexts/SettingsContext';
 import { Globe, Lock } from 'lucide-react';
 
 export interface BrowserRef {
@@ -26,7 +27,12 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const [inputValue, setInputValue] = useState(url);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const { settings } = useSettings();
+  const { t } = useTranslation();
   const addressBarPos = settings.addressBar;
+
+  // Track initial URL so we only set 'src' once.
+  // This prevents ERR_ABORTED errors when the parent state syncs.
+  const [initialUrl] = useState(url);
 
   // Use a ref for onStateChange to avoid stale closures in webview listeners
   const onStateChangeRef = useRef(onStateChange);
@@ -34,8 +40,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
 
-  const syncParentState = (webview: any) => {
-    const u = webview.getURL();
+  const syncParentState = (webview: any, forceUrl?: string) => {
+    if (!webview) return;
+    const u = forceUrl || webview.getURL();
     const t = webview.getTitle();
     let d = '';
     try {
@@ -67,7 +74,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       const currentUA = webviewRef.current.getUserAgent();
       const isMobile = currentUA.includes('Mobile');
       const mobileUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
-      const desktopUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      const desktopUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0';
       
       webviewRef.current.setUserAgent(isMobile ? desktopUA : mobileUA);
       webviewRef.current.reload();
@@ -75,38 +82,47 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     },
     setGlobalMute: (muted: boolean) => {
       webviewRef.current?.setAudioMuted(muted);
-    }
+    },
+    isInputFocused
   }));
+
+  // Consolidated Listener Attachment logic
+  const attachListeners = (webview: any) => {
+    if (!webview) return;
+
+    const handleStateUpdate = (e?: any) => {
+      const u = e?.url || webview.getURL();
+      setCurrentUrl(u);
+      syncParentState(webview, u);
+    };
+
+    const listeners = [
+      ['did-finish-load', handleStateUpdate],
+      ['did-stop-loading', handleStateUpdate],
+      ['load-commit', handleStateUpdate],
+      ['did-navigate', handleStateUpdate],
+      ['did-navigate-in-page', handleStateUpdate],
+      ['did-frame-finish-load', handleStateUpdate],
+      ['page-title-updated', handleStateUpdate],
+      ['page-favicon-updated', handleStateUpdate],
+      ['dom-ready', () => {
+        const wc = webview.getWebContents();
+        if (wc) wc.setMaxListeners(100);
+      }]
+    ];
+
+    listeners.forEach(([event, handler]) => webview.addEventListener(event, handler));
+
+    return () => {
+      listeners.forEach(([event, handler]) => webview.removeEventListener(event, handler));
+    };
+  };
 
   useEffect(() => {
     const webview = webviewRef.current;
     if (!webview) return;
-
-    const onDidFinishLoad = () => {
-      syncParentState(webview);
-      setCurrentUrl(webview.getURL());
-    };
-
-    const onLoadCommit = (e: any) => {
-       if (e.isMainFrame) {
-         setCurrentUrl(e.url);
-         syncParentState(webview);
-       }
-    };
-
-    const onTitleUpdate = () => {
-      syncParentState(webview);
-    };
-
-    webview.addEventListener('did-finish-load', onDidFinishLoad);
-    webview.addEventListener('load-commit', onLoadCommit);
-    webview.addEventListener('page-title-updated', onTitleUpdate);
-    return () => {
-      webview.removeEventListener('did-finish-load', onDidFinishLoad);
-      webview.removeEventListener('load-commit', onLoadCommit);
-      webview.removeEventListener('page-title-updated', onTitleUpdate);
-    };
-  }, []);
+    return attachListeners(webview);
+  }, [webviewRef.current, preloadPath]); // Re-attach if webview ref changes or preloadPath is finally set
 
   // Sync Input Value when URL changes, but only if NOT focused
   useEffect(() => {
@@ -171,22 +187,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     }
   }, []);
 
-  useEffect(() => {
-    const webview = webviewRef.current;
-    if (!webview) return;
-
-    // Defensive: also set limit on the webContents if it attaches here
-    const onDomReady = () => {
-      const wc = webview.getWebContents();
-      if (wc) wc.setMaxListeners(100);
-    };
-
-    webview.addEventListener('dom-ready', onDomReady);
-    return () => {
-      webview.removeEventListener('dom-ready', onDomReady);
-    };
-  }, []);
-
   if (!preloadPath) return null;
 
   // Absolute Transparency for Pixel Perfection:
@@ -202,15 +202,17 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       className={`w-full h-full transition-opacity duration-300 relative ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none absolute inset-0'}`}
       style={{ 
         backgroundColor: 'transparent',
-        borderRadius: 'var(--app-radius) 0 0 var(--app-radius)',
-        clipPath: clipPathValue,
-        WebkitClipPath: clipPathValue,
       }}
     >
       <webview
-        ref={webviewRef}
-        src={url}
+        ref={(node) => {
+          if (node) {
+            webviewRef.current = node;
+          }
+        }}
+        src={initialUrl}
         preload={preloadPath}
+        useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         className="w-full h-full overflow-hidden"
         style={{ 
           backgroundColor: 'transparent',
@@ -222,9 +224,18 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
 
       {/* The Address Bar */}
       {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (
-        <div 
-          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 transition-all duration-300 z-[10005] ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'} ${showAddressBar ? 'opacity-100 translate-y-0 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'} ${!showAddressBar && addressBarPos === 'Top' ? '-translate-y-4' : ''} ${!showAddressBar && addressBarPos === 'Bottom' ? 'translate-y-4' : ''}`}
+        <motion.div 
+          initial={false}
+          animate={{ 
+            y: showAddressBar ? 0 : (addressBarPos === 'Top' ? -100 : 100),
+            opacity: showAddressBar ? 1 : 0
+          }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className={`absolute left-1/2 -translate-x-1/2 w-[80%] max-w-2xl backdrop-blur-md rounded-xl border border-black/5 dark:border-white/10 shadow-lg flex items-center px-4 py-2 gap-3 z-[10005] ${addressBarPos === 'Top' ? 'top-4' : 'bottom-4'}`}
           style={{ backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 95%, transparent)' }}
+          onMouseEnter={() => {
+             // If we are in the bar, we should probably keep it open
+          }}
         >
           <div className="flex items-center justify-center p-1.5 rounded-md bg-black/5 dark:bg-white/5 text-[var(--theme-text)] opacity-60">
             {currentUrl.startsWith('https') ? <Lock size={14} className="text-green-400" /> : <Globe size={14} />}
@@ -237,9 +248,9 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
             className="flex-1 bg-transparent text-sm text-zinc-200 outline-none w-full"
-            placeholder="Search or enter URL"
+            placeholder={t('browser.search.placeholder')}
           />
-        </div>
+        </motion.div>
       )}
     </div>
   );

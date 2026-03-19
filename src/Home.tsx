@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, ChevronDown, RotateCw, Search } from 'lucide-react';
-import { useSettings } from './contexts/SettingsContext';
+import { useSettings, useTranslation } from './contexts/SettingsContext';
 
 interface HomeViewProps {
   onNavigate: (url: string) => void;
@@ -9,6 +9,7 @@ interface HomeViewProps {
 
 export default function HomeView({ onNavigate }: HomeViewProps) {
   const { settings, updateSetting } = useSettings();
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [showEngineMenu, setShowEngineMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -16,7 +17,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   const searchEngines = [
     { name: 'Google', domain: 'google.com', color: 'text-blue-500', url: 'https://www.google.com/search?q=' },
     { name: 'Bing', domain: 'bing.com', color: 'text-blue-600', url: 'https://www.bing.com/search?q=' },
-    { name: 'ChatGPT', domain: 'openai.com', color: 'text-emerald-500', url: 'https://chat.openai.com/?q=' },
+    { name: 'Gemini', domain: 'gemini.google.com', color: 'text-blue-400', url: 'https://gemini.google.com/app?q=' },
     { name: 'ClaudeAI', domain: 'claude.ai', color: 'text-orange-400', url: 'https://claude.ai/new?q=' },
     { name: 'Yahoo', domain: 'yahoo.com', color: 'text-purple-600', url: 'https://search.yahoo.com/search?p=' },
     { name: 'Baidu', domain: 'baidu.com', color: 'text-blue-700', url: 'https://www.baidu.com/s?wd=' },
@@ -149,7 +150,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           <input
             type="text"
             className="w-full h-14 pl-[5.5rem] pr-12 bg-white/95 backdrop-blur-sm rounded-full text-zinc-800 placeholder-zinc-400 outline-none text-[15px] shadow-md border border-white/10 focus:ring-1 focus:ring-[var(--theme-accent)] transition-all"
-            placeholder={`Search with ${currentEngine.name} or enter URL`}
+            placeholder={t('home.search.placeholder', { engine: currentEngine.name })}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -173,7 +174,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                 onClick={() => onNavigate(link.url)}
                 onContextMenu={(e) => removeShortcut(link.id, e)}
                 className="flex flex-col items-center gap-3 group w-16 relative"
-                title="Right click to remove"
+                title={t('home.shortcuts.removeTooltip')}
               >
                 <div className="w-14 h-14 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1 active:scale-95 border border-white/20 overflow-hidden">
                   <img 
@@ -196,7 +197,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 hover:bg-white/30 hover:scale-110 hover:-translate-y-1 active:scale-95 border border-white/10">
               <Plus size={24} strokeWidth={2} />
             </div>
-            <span className="text-[13px] font-medium text-white/90 drop-shadow-md">Ekle</span>
+            <span className="text-[13px] font-medium text-white/90 drop-shadow-md">{t('home.shortcuts.add')}</span>
           </button>
         </div>
       </div>
@@ -211,27 +212,27 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             className="w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl border border-black/10 dark:border-white/10"
             style={{ backgroundColor: 'var(--theme-sidebar)', color: 'var(--theme-text)' }}
           >
-            <h2 className="text-xl font-bold mb-4">Yeni Kısayol Ekle</h2>
+            <h2 className="text-xl font-bold mb-4">{t('home.shortcuts.modal.title')}</h2>
             <form onSubmit={handleAddShortcut} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase mb-1">Ad</label>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase mb-1">{t('home.shortcuts.modal.name')}</label>
                 <input 
                   type="text" 
                   value={newShortcut.name}
                   onChange={e => setNewShortcut(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 text-[var(--theme-text)] outline-none focus:ring-1 focus:ring-[var(--theme-accent)]"
-                  placeholder="örn. YouTube"
+                  placeholder={t('home.shortcuts.modal.namePlaceholder')}
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase mb-1">URL</label>
+                <label className="block text-xs font-semibold text-zinc-500 uppercase mb-1">{t('home.shortcuts.modal.url')}</label>
                 <input 
                   type="text" 
                   value={newShortcut.url}
                   onChange={e => setNewShortcut(prev => ({ ...prev, url: e.target.value }))}
                   className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 text-[var(--theme-text)] outline-none focus:ring-1 focus:ring-[var(--theme-accent)]"
-                  placeholder="örn. youtube.com"
+                  placeholder={t('home.shortcuts.modal.urlPlaceholder')}
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -240,13 +241,13 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                   onClick={() => setIsAddModalOpen(false)}
                   className="flex-1 px-4 py-2 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-lg transition-colors font-medium text-sm"
                 >
-                  İptal
+                  {t('home.shortcuts.modal.cancel')}
                 </button>
                 <button 
                   type="submit"
                   className="flex-1 px-4 py-2 bg-[var(--theme-accent)] text-white rounded-lg transition-colors font-medium text-sm"
                 >
-                  Ekle
+                  {t('home.shortcuts.modal.add')}
                 </button>
               </div>
             </form>
@@ -258,7 +259,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       <button 
         onClick={cycleBackground}
         className="absolute bottom-6 right-6 p-3 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full text-white/50 hover:text-white transition-all duration-300 z-10 border border-white/10 group"
-        title="Change Background"
+        title={t('home.background.change')}
       >
         <RotateCw size={20} className="group-active:rotate-180 transition-transform duration-500" />
       </button>

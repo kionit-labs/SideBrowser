@@ -6,8 +6,17 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('General');
   const { settings, updateSetting } = useSettings();
   const { t } = useTranslation();
+  
+  const [appVersion, setAppVersion] = useState<string>('...');
+  const [updateStatus, setUpdateStatus] = useState<{msg: string, isError: boolean} | null>(null);
 
-  const tabs = ['General', 'Window', settings.passwordManagerEnabled && 'Passwords', 'Updates', 'Shortcuts'].filter(Boolean) as string[];
+  const tabs = [
+    { id: 'General', label: t('tab.general') },
+    { id: 'Window', label: t('tab.window') },
+    ...(settings.passwordManagerEnabled ? [{ id: 'Passwords', label: t('tab.passwords') }] : []),
+    { id: 'Updates', label: t('tab.updates') },
+    { id: 'Shortcuts', label: t('tab.shortcuts') }
+  ];
   
   const [searchQuery, setSearchQuery] = useState('');
   const [passwords, setPasswords] = useState<any[]>([]);
@@ -29,6 +38,21 @@ export default function Settings() {
     if (activeTab === 'Passwords') {
       (window as any).electronAPI.getPasswords().then(setPasswords);
     }
+    
+    if (activeTab === 'Updates') {
+      if ((window as any).electronAPI) {
+        (window as any).electronAPI.getAppVersion().then(setAppVersion);
+        (window as any).electronAPI.onUpdateMessage((msg: string, isError: boolean) => {
+          setUpdateStatus({ msg, isError });
+        });
+      }
+    }
+    
+    return () => {
+      if (activeTab === 'Updates' && (window as any).electronAPI) {
+        (window as any).electronAPI.removeAllListeners('update-message');
+      }
+    };
   }, [activeTab]);
 
   const filteredPasswords = useMemo(() => {
@@ -76,7 +100,7 @@ export default function Settings() {
     (window as any).electronAPI.savePasswords(fresh);
   };
 
-  const SelectItem = ({ label, subtitle, options, value, onChange }: any) => (
+  const SelectItem = ({ label, subtitle, options, value, onChange, optionLabels }: any) => (
     <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
       <div className="flex items-center justify-between">
         <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{label}</h3>
@@ -84,7 +108,7 @@ export default function Settings() {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-blue-500/50 min-w-[120px]">
-          {options.map((opt: string) => <option key={opt} value={opt} className="bg-zinc-900 text-white">{opt}</option>)}
+          {options.map((opt: string, i: number) => <option key={opt} value={opt} className="bg-zinc-900 text-white">{optionLabels ? optionLabels[i] : opt}</option>)}
         </select>
       </div>
       {subtitle && <p className="text-[13px] text-zinc-500 mt-2">{subtitle}</p>}
@@ -131,15 +155,15 @@ export default function Settings() {
           <div className="flex w-full mt-2 mb-6 border-b border-white/10">
             {tabs.map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 py-2.5 text-sm font-semibold transition-all duration-200 rounded-t-lg mx-0.5 ${
-                  activeTab === tab 
+                  activeTab === tab.id 
                     ? 'bg-[var(--theme-accent)] text-white shadow-sm' 
                     : 'text-[var(--theme-text)] opacity-50 hover:opacity-100 hover:bg-white/5'
                 }`}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -155,18 +179,21 @@ export default function Settings() {
                 <SelectItem 
                   label={t('general.theme')} 
                   options={['Default', 'Violet', 'Orange', 'Green', 'Yellow', 'Slate', 'Stone', 'Gray', 'Neutral', 'Red', 'Rose', 'Blue']} 
+                  optionLabels={['Default', 'Violet', 'Orange', 'Green', 'Yellow', 'Slate', 'Stone', 'Gray', 'Neutral', 'Red', 'Rose', 'Blue'].map(o => t(`theme.${o.toLowerCase()}` as any))}
                   value={settings.themeColor}
                   onChange={(val: string) => updateSetting('themeColor', val)}
                 />
                 <SelectItem 
                   label={t('general.darkmode')} 
                   options={['System', 'Light', 'Dark']} 
+                  optionLabels={['System', 'Light', 'Dark'].map(o => t(`mode.${o.toLowerCase()}` as any))}
                   value={settings.darkMode}
                   onChange={(val: string) => updateSetting('darkMode', val)}
                 />
                 <SelectItem 
                   label={t('general.addressbar')} 
                   options={['Hidden', 'Top', 'Bottom']} 
+                  optionLabels={['Hidden', 'Top', 'Bottom'].map(o => t(`addressbar.${o.toLowerCase()}` as any))}
                   subtitle={t('general.addressbar.sub')}
                   value={settings.addressBar}
                   onChange={(val: string) => updateSetting('addressBar', val)}
@@ -252,40 +279,48 @@ export default function Settings() {
                 <SelectItem 
                   label={t('window.snapside')} 
                   options={['right', 'left']} 
+                  optionLabels={['right', 'left'].map(o => t(`snap.${o}` as any))}
                   subtitle={t('window.snapside.sub')}
                   value={settings.defaultSnapSide}
                   onChange={(val: string) => updateSetting('defaultSnapSide', val)}
                 />
               </div>
-            )}
-
-            {activeTab === 'Updates' && (
+            )}            {activeTab === 'Updates' && (
               <div className="flex flex-col animate-in fade-in duration-300 space-y-6 pt-2">
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2 text-[#6185b3]">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span className="text-[15px] font-medium">You're up to date</span>
+                  <div className={`flex items-center gap-2 ${updateStatus?.isError ? 'text-rose-400' : 'text-[#6185b3]'}`}>
+                    {!updateStatus?.isError && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                    <span className="text-[15px] font-medium">{updateStatus ? updateStatus.msg : t('updates.uptodate')}</span>
                   </div>
-                  <p className="text-zinc-400 text-sm">Current version: 2.0.0</p>
+                  <p className="text-zinc-400 text-sm">{t('updates.version')}: {appVersion}</p>
                   
                   <div className="flex items-center gap-3">
-                    <button className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg border border-white/10 transition-colors">
-                      Check for updates
+                    <button 
+                      onClick={() => (window as any).electronAPI?.checkForUpdates()}
+                      className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg border border-white/10 transition-colors"
+                    >
+                      {t('updates.check')}
                     </button>
-                    <button className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg border border-white/10 transition-colors flex items-center gap-1.5">
-                      Release notes
+                    <button 
+                      onClick={() => (window as any).electronAPI?.openExternal('https://github.com/kionit-labs/SideBrowser/releases')}
+                      className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg border border-white/10 transition-colors flex items-center gap-1.5"
+                    >
+                      {t('updates.releaseNotes')}
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                     </button>
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-white/5">
-                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">Preferences</h3>
-                  <label className="flex items-center gap-3 cursor-pointer group w-max">
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded bg-[var(--theme-accent)] border border-[var(--theme-accent)]">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">{t('updates.preferences')}</h3>
+                  <label 
+                     onClick={(e) => { e.preventDefault(); updateSetting('autoUpdate', !settings.autoUpdate); }}
+                     className="flex items-center gap-3 cursor-pointer group w-max"
+                  >
+                    <div className={`relative flex items-center justify-center w-5 h-5 rounded border transition-colors ${settings.autoUpdate ? 'bg-[var(--theme-accent)] border-[var(--theme-accent)]' : 'bg-transparent border-zinc-600 group-hover:border-zinc-500'}`}>
+                      {settings.autoUpdate && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                     </div>
-                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90 transition-colors">Automatically check for updates</span>
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90 transition-colors">{t('updates.autoCheck')}</span>
                   </label>
                 </div>
               </div>
@@ -298,7 +333,7 @@ export default function Settings() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                     <input 
                       type="text"
-                      placeholder="Search passwords"
+                      placeholder={t('passwords.searchPlaceholder')}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-lg pl-10 pr-4 py-2.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 transition-all font-medium"
@@ -308,7 +343,7 @@ export default function Settings() {
                     onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:bg-white/5 rounded-lg transition-all"
                   >
-                    <ExternalLink className="w-4 h-4" /> Import
+                    <ExternalLink className="w-4 h-4" /> {t('passwords.import')}
                   </button>
                   <input 
                     type="file" 
@@ -320,7 +355,7 @@ export default function Settings() {
                 </div>
 
                 <div className="text-[15px] font-medium text-[var(--theme-text)] opacity-60">
-                  {passwords.length} sites and apps
+                  {passwords.length} {t('passwords.count')}
                 </div>
 
                 {/* Password List */}
@@ -369,7 +404,7 @@ export default function Settings() {
                   
                   {filteredPasswords.length === 0 && searchQuery && (
                     <div className="py-12 text-center text-zinc-500 text-sm">
-                      No passwords found matching "{searchQuery}"
+                      {t('passwords.notFound')} "{searchQuery}"
                     </div>
                   )}
                 </div>
@@ -378,7 +413,7 @@ export default function Settings() {
                 {passwords.length === 0 && !searchQuery && (
                    <div className="flex flex-col pt-4">
                       <p className="text-[15px] text-zinc-400 mb-6">
-                        Import passwords from <span className="text-blue-400 cursor-pointer hover:underline">Chrome Browser</span>, <span className="text-blue-400 cursor-pointer hover:underline">Microsoft Edge Browser</span> or <span className="text-blue-400 cursor-pointer hover:underline">Firefox Browser</span>
+                        {t('passwords.importSub')} <span className="text-blue-400 cursor-pointer hover:underline">Chrome Browser</span>, <span className="text-blue-400 cursor-pointer hover:underline">Microsoft Edge Browser</span> or <span className="text-blue-400 cursor-pointer hover:underline">Firefox Browser</span>
                       </p>
                       
                       <div 
@@ -388,7 +423,7 @@ export default function Settings() {
                         <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center group-hover:scale-110 transition-transform">
                           <Upload className="w-8 h-8 text-zinc-500" />
                         </div>
-                        <span className="text-sm text-zinc-400 font-medium">Click to select a CSV file</span>
+                        <span className="text-sm text-zinc-400 font-medium">{t('passwords.importClick')}</span>
                       </div>
                    </div>
                 )}
@@ -398,42 +433,42 @@ export default function Settings() {
             {activeTab === 'Shortcuts' && (
               <div className="flex flex-col animate-in fade-in duration-300">
                 <div className="flex flex-col pt-2">
-                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">Global Shortcuts</h3>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">{t('shortcuts.global.title')}</h3>
                   
                   <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">Switch Window Show and Hide</span>
-                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">{t('shortcuts.global.toggleShow')}</span>
+                    <input type="text" readOnly placeholder={t('shortcuts.global.record')} className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
                   </div>
                   
                   <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">Enable/Disable Automatically Hide the Window When It Loses Focus</span>
-                    <input type="text" readOnly placeholder="Record Shortcut" className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
+                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">{t('shortcuts.global.toggleAutohide')}</span>
+                    <input type="text" readOnly placeholder={t('shortcuts.global.record')} className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
                   </div>
                 </div>
 
                 <div className="flex flex-col pt-8">
-                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">In-window Shortcuts</h3>
+                  <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">{t('shortcuts.window.title')}</h3>
                   
                   {[
-                    ['New Window', 'Ctrl + N'],
-                    ['Toggle Sidebar', 'Ctrl + B'],
-                    ['Switch to the next tab', 'Ctrl + Tab'],
-                    ['Switch to the previous tab', 'Ctrl + Shift + Tab'],
-                    ['Switch to a specific tab', 'Ctrl + 1~9'],
-                    ['Close current tab', 'Ctrl + W'],
-                    ['Go to Home', 'Ctrl + T'],
-                    ['Back', 'Ctrl + ←'],
-                    ['Forward', 'Ctrl + →'],
-                    ['Zoom in', 'Ctrl + +'],
-                    ['Zoom out', 'Ctrl + -'],
-                    ['Reset zoom', 'Ctrl + 0'],
-                    ['Refresh', 'Ctrl + R'],
-                    ['Refresh', 'F5'],
-                    ['Open DevTools', 'Ctrl + Shift + I'],
-                    ['Open DevTools', 'F12'],
-                    ['Mute/unmute All Pages', 'Ctrl + M'],
-                    ['Open Settings Page', 'Ctrl + ,'],
-                    ['Add Favorite', 'Ctrl + D']
+                    [t('shortcuts.key.newWindow'), 'Ctrl + N'],
+                    [t('shortcuts.key.toggleSidebar'), 'Ctrl + B'],
+                    [t('shortcuts.key.nextTab'), 'Ctrl + Tab'],
+                    [t('shortcuts.key.prevTab'), 'Ctrl + Shift + Tab'],
+                    [t('shortcuts.key.specificTab'), 'Ctrl + 1~9'],
+                    [t('shortcuts.key.closeTab'), 'Ctrl + W'],
+                    [t('shortcuts.key.home'), 'Ctrl + T'],
+                    [t('shortcuts.key.back'), 'Ctrl + ←'],
+                    [t('shortcuts.key.forward'), 'Ctrl + →'],
+                    [t('shortcuts.key.zoomIn'), 'Ctrl + +'],
+                    [t('shortcuts.key.zoomOut'), 'Ctrl + -'],
+                    [t('shortcuts.key.zoomReset'), 'Ctrl + 0'],
+                    [t('shortcuts.key.refresh'), 'Ctrl + R'],
+                    [t('shortcuts.key.refresh'), 'F5'],
+                    [t('shortcuts.key.devtools'), 'Ctrl + Shift + I'],
+                    [t('shortcuts.key.devtools'), 'F12'],
+                    [t('shortcuts.key.mute'), 'Ctrl + M'],
+                    [t('shortcuts.key.settings'), 'Ctrl + ,'],
+                    [t('shortcuts.key.favorite'), 'Ctrl + D']
                   ].map(([label, shortcut], i) => (
                     <div key={i} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 -mx-2 rounded-lg">
                       <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90">{label}</span>

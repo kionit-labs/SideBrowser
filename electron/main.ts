@@ -1,13 +1,13 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { ElectronBlocker, fullLists } from '@ghostery/adblocker-electron';
+import { ElectronBlocker } from '@ghostery/adblocker-electron';
 import { Store } from 'electron-datastore';
-
+import { autoUpdater } from 'electron-updater';
 // Identity Lockdown at Process Start
-app.name = 'Side Browser';
+app.name = 'SideBrowser';
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.ismail.sidebrowser');
+  app.setAppUserModelId('com.kionitlabs.sidebrowser');
 }
 
 // Increase global event listener limit to prevent MaxListenersExceededWarning
@@ -25,10 +25,9 @@ process.on('uncaughtException', (error) => {
 });
 
 // Optimization Switches for High-Performance Media & Stability
-// We re-enable cache (YouTube depends on it) and disable process-level isolation that can interfere with AdBlockers.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process,AudioServiceSandbox');
-app.commandLine.appendSwitch('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+// Removed AutomationControlled and enable-automation flags as they are often detected by Google
+// Removed global userAgentFallback to match Slide Browser's clean session-only approach
 
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -58,9 +57,11 @@ let passwordsStore: any;
 let blocker: ElectronBlocker | null = null;
 async function setupAdblocker() {
   try {
-    blocker = await ElectronBlocker.fromLists(fetch, fullLists);
+    // Use pre-baked filters for faster startup and more reliable YouTube blocking
+    blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
+    console.log('Adblocker initialized with pre-built filters');
   } catch (error) {
-    console.error('Failed to load adblocker lists:', error);
+    console.error('Failed to initialize adblocker:', error);
   }
 }
 
@@ -219,7 +220,7 @@ function createWindow() {
     height: 600,
     minWidth: 300,
     minHeight: 400,
-    title: 'Side Browser',
+    title: 'SideBrowser',
     frame: false,
     resizable: true,
     titleBarStyle: 'hidden',
@@ -232,6 +233,7 @@ function createWindow() {
       webviewTag: true,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -241,6 +243,39 @@ function createWindow() {
   // Apply high listener limits to EVERY webview that attaches
   win.webContents.on('did-attach-webview', (_event, webContents) => {
      webContents.setMaxListeners(100);
+  });
+
+  // Attempt 4: Handle OAuth Popups (Matching Slide Browser's SECRET)
+  app.on('web-contents-created', (_event, contents) => {
+    if (contents.getType() === 'webview') {
+      contents.setWindowOpenHandler(({ url }) => {
+        const oauthDomains = [
+            "https://accounts.google.com", 
+            "googlepopupredirect", 
+            "https://appleid.apple.com/auth/authorize",
+            "https://login.microsoftonline.com/",
+            "https://login.live.com/oauth20_authorize"
+        ];
+        
+        if (oauthDomains.some(d => url.includes(d))) {
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 800,
+              height: 600,
+              alwaysOnTop: true,
+              autoHideMenuBar: true,
+              webPreferences: {
+                contextIsolation: true,
+                nodeIntegration: false,
+                sandbox: true
+              }
+            }
+          };
+        }
+        return { action: 'deny' };
+      });
+    }
   });
 
   // Sync initial opacity from store
@@ -389,19 +424,33 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Migration: Replace ChatGPT with Gemini in existing shortcuts
+  const currentShortcuts = store.get('shortcuts') || [];
+  const migratedShortcuts = currentShortcuts.map((s: any) => {
+    if (s.name === 'ChatGPT' || (s.url && s.url.includes('chat.openai.com'))) {
+      return { ...s, name: 'Gemini', url: 'https://gemini.google.com' };
+    }
+    return s;
+  });
+  if (JSON.stringify(currentShortcuts) !== JSON.stringify(migratedShortcuts)) {
+    store.set('shortcuts', migratedShortcuts);
+    console.log('Migrated shortcuts: ChatGPT -> Gemini');
+  }
+
   // Apply initial global states
   if (store.get('alwaysOnTop') && win) win.setAlwaysOnTop(true, 'screen-saver');
   if (store.get('autoLaunch')) {
      app.setLoginItemSettings({
       openAtLogin: true,
-      path: app.getPath('exe')
+      path: app.getPath('exe'),
+      args: app.isPackaged ? [] : [app.getAppPath()]
     });
   }
 
   await setupAdblocker();
   
   try {
-    const iconPath = path.join(process.env.VITE_PUBLIC || '', 'favicon.ico');
+    const iconPath = path.join(process.env.VITE_PUBLIC || '', 'tray-icon.png');
     const trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
     tray = new Tray(trayIcon);
     const contextMenu = Menu.buildFromTemplate([
@@ -409,7 +458,7 @@ app.whenReady().then(async () => {
       { type: 'separator' },
       { label: 'Quit', click: () => { app.quit(); } }
     ]);
-    tray.setToolTip('Side Browser');
+    tray.setToolTip('SideBrowser');
     tray.setContextMenu(contextMenu);
     tray.on('click', () => { win?.show(); win?.focus(); });
   } catch (err) {
@@ -419,8 +468,103 @@ app.whenReady().then(async () => {
   createWindow();
   startEdgeCheck();
 
+  // ═══════════════════════════════════════════════════
+  // Auto Updater
+  // ═══════════════════════════════════════════════════
+  if (store.get('autoUpdate') !== false) {
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+      console.error('Failed to check for updates:', err);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Attempt 4: The Slide Browser Secret Session Configuration
+  // ═══════════════════════════════════════════════════
+  const ses = session.defaultSession;
+  const targetChromeVersion = '134.0.0.0';
+  const cleanUA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${targetChromeVersion} Safari/537.36`;
+  
+  ses.setUserAgent(cleanUA);
+
+  // Strip Electron/App tokens and apply Google-specific UA hacks
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const { requestHeaders } = details;
+    let ua = requestHeaders['User-Agent'] || cleanUA;
+    
+    // Slide Browser Hack: Replace ENTIRELY if it contains Electron
+    if (ua.includes('Electron')) {
+      ua = cleanUA;
+    }
+
+    // Slide Browser Hack: Prepend "Chrome " for Google Login
+    if (details.url.includes('https://accounts.google.com/')) {
+       ua = 'Chrome ' + ua;
+    }
+    
+    requestHeaders['User-Agent'] = ua;
+
+    // Clean Client Hints (sec-ch-ua)
+    if (requestHeaders['sec-ch-ua']) {
+      requestHeaders['sec-ch-ua'] = `"Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"`;
+    }
+    if (requestHeaders['sec-ch-ua-platform']) {
+      requestHeaders['sec-ch-ua-platform'] = '"Windows"';
+    }
+
+    // Slide Browser Hack: Delete Referer for certain redirects if needed
+    if (details.url.includes('googlepopupredirect')) {
+        delete requestHeaders['Referer'];
+    }
+
+    callback({ requestHeaders });
+  });
+
+  // Slide Browser Hack: Strip security headers from HTML pages to prevent environment detection checks
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    const { responseHeaders } = details;
+    const contentType = responseHeaders?.['content-type']?.[0] || '';
+    
+    if (contentType.includes('text/html')) {
+        const headersToStrip = [
+            'Content-Security-Policy',
+            'content-security-policy',
+            'X-Frame-Options',
+            'x-frame-options',
+            'cross-origin-resource-policy',
+            'Cross-Origin-Resource-Policy'
+        ];
+        headersToStrip.forEach(h => {
+           if (responseHeaders) delete responseHeaders[h];
+        });
+    }
+
+    callback({ responseHeaders });
+  });
+
+  if (typeof (ses as any).registerPreloadScript !== 'function' && typeof (ses as any).setPreloads === 'function') {
+    (ses as any).registerPreloadScript = (config: any) => {
+      try {
+        const filePath = typeof config === 'string' ? config : (config.filePath || config.scriptPath);
+        if (!filePath) return;
+        
+        const current = (ses as any).getPreloads() || [];
+        if (!current.includes(filePath)) {
+          (ses as any).setPreloads([...current, filePath]);
+        }
+      } catch (e) {
+        console.error('Failed to polyfill registerPreloadScript:', e);
+      }
+    };
+  }
+
   if (store.get('adblockEnabled')) {
-    blocker?.enableBlockingInSession(session.defaultSession);
+    if (blocker) {
+      try {
+        blocker.enableBlockingInSession(ses);
+      } catch (e) {
+        console.warn('Adblocker: Failed to enable blocking in session:', e);
+      }
+    }
   }
 });
 
@@ -436,8 +580,12 @@ ipcMain.on('set-store-val', (_event, key, val) => {
     win.setOpacity(val);
   }
   if (key === 'adblockEnabled') {
-    if (val) blocker?.enableBlockingInSession(session.defaultSession);
-    else blocker?.disableBlockingInSession(session.defaultSession);
+    const ses = session.defaultSession;
+    if (val && blocker) {
+      blocker.enableBlockingInSession(ses);
+    } else {
+      blocker?.disableBlockingInSession(ses);
+    }
   }
 });
 
@@ -461,6 +609,42 @@ ipcMain.on('hide-window', () => {
 ipcMain.on('set-auto-hide', (_event, enabled) => {
   isPinned = enabled;
 });
+
+// Updates Handlers
+ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.on('check-for-updates', () => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+      win?.webContents.send('update-message', 'Error checking for updates', true);
+    });
+  } else {
+    win?.webContents.send('update-message', 'Updates disabled in dev mode', true);
+  }
+});
+ipcMain.on('open-external', (_event, url) => {
+  shell.openExternal(url);
+});
+
+// AutoUpdater events routing to renderer
+autoUpdater.on('checking-for-update', () => {
+  win?.webContents.send('update-message', 'Checking for updates...', false);
+});
+autoUpdater.on('update-available', (info) => {
+  win?.webContents.send('update-message', `Update v${info.version} available! Downloading...`, false);
+});
+autoUpdater.on('update-not-available', () => {
+  win?.webContents.send('update-message', 'You are up to date', false);
+});
+autoUpdater.on('error', (err) => {
+  win?.webContents.send('update-message', 'Error: ' + err.message, true);
+});
+autoUpdater.on('download-progress', (progressObj) => {
+  win?.webContents.send('update-message', `Downloading: ${Math.round(progressObj.percent)}%`, false);
+});
+autoUpdater.on('update-downloaded', (info) => {
+  win?.webContents.send('update-message', 'Update downloaded. Restart to install.', false);
+});
+
 ipcMain.on('set-auto-snap', (_event, enabled) => {
   isAutoSnap = enabled;
   if (enabled && win) {
@@ -515,6 +699,7 @@ ipcMain.on('set-auto-launch', (_event, enabled: boolean) => {
   app.setLoginItemSettings({
     openAtLogin: enabled,
     path: app.getPath('exe'),
+    args: app.isPackaged ? [] : [app.getAppPath()]
   });
   if (store) store.set('autoLaunch', enabled);
 });

@@ -1,4 +1,5 @@
 // This script is injected into every <webview> to customize its appearance and behavior.
+
 window.addEventListener('load', () => {
   addCustomScrollbarStyle();
 });
