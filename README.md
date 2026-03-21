@@ -35,7 +35,7 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 
 <div align="center">
 
-![SideBrowser Showcase](assets/demo.mp4)
+![SideBrowser Showcase](https://github.com/user-attachments/assets/6a43456d-fc33-4b29-b709-213e13b70a06)
 
 </div>
 
