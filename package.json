@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "description": "A sleek, slide-out side browser panel for Windows. Built with Electron, React, and TypeScript.",
   "productName": "Side Browser",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "author": "kionit-labs",
   "repository": {
     "type": "git",

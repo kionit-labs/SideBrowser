@@ -94,7 +94,7 @@ export default function App() {
 
   const [isHoveringAddressBarEdge, setIsHoveringAddressBarEdge] = useState(false);
   const [isTranslateUIOpen, setIsTranslateUIOpen] = useState(false);
-  const browserRefs = useRef<Record<string, BrowserRef>>({});
+  const browserRefs = useRef<Record<string, BrowserRef | null>>({});
 
   // Reset translate state on view changes or tab changes
   useEffect(() => {
@@ -128,12 +128,27 @@ export default function App() {
     });
   }, [isGlobalMuted]);
 
+  // Use Refs for IPC handlers to avoid useEffect re-runs
+  const stateRef = useRef({ 
+    activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden, settings 
+  });
+  
+  useEffect(() => {
+    stateRef.current = { 
+      activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden, settings 
+    };
+  }, [activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden, settings]);
+
   useEffect(() => {
     if ((window as any).electronAPI) {
       const blurHandler = (side: string) => {
-        setSlideSide(side);
-        setIsBlurred(true);
-        setContextMenuTabId(null);
+        // Small delay to ignore "flicker" blurs during tab closing/renders
+        setTimeout(() => {
+          if (document.hasFocus()) return; // If we still have focus, ignore the blur
+          setSlideSide(side);
+          setIsBlurred(true);
+          setContextMenuTabId(null);
+        }, 50);
       };
       const focusHandler = () => {
         setIsBlurred(false);
@@ -143,6 +158,7 @@ export default function App() {
       };
 
       const windowShortcutHandler = (type: string, data?: any) => {
+        const { activeTabId, tabs, isGlobalMuted, isSidebarHidden } = stateRef.current;
         const activeBrowser = activeTabId ? browserRefs.current[activeTabId] : null;
         
         switch (type) {
@@ -188,27 +204,24 @@ export default function App() {
             setView('home');
             break;
           case 'toggle-sidebar':
-            setIsSidebarHidden(prev => !prev);
+            setIsSidebarHidden(!isSidebarHidden);
             break;
           case 'toggle-mute':
-            setIsGlobalMuted(prev => !prev);
+            setIsGlobalMuted(!isGlobalMuted);
             break;
           case 'open-settings':
             setView('settings');
             break;
           case 'add-favorite': {
-            setTabs(prevTabs => {
-              const activeTab = prevTabs.find(t => t.id === activeTabId);
-              if (activeTab) {
-                const newShortcut = {
-                  id: Date.now().toString(),
-                  name: activeTab.title || activeTab.domain || 'Favorite',
-                  url: activeTab.url
-                };
-                updateSetting('shortcuts', [...settings.shortcuts, newShortcut]);
-              }
-              return prevTabs;
-            });
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab) {
+              const newShortcut = {
+                id: Date.now().toString(),
+                name: activeTab.title || activeTab.domain || 'Favorite',
+                url: activeTab.url
+              };
+              updateSetting('shortcuts', [...stateRef.current.settings.shortcuts, newShortcut]);
+            }
             break;
           }
           case 'reload': activeBrowser?.reload(); break;
@@ -243,10 +256,8 @@ export default function App() {
         document.body.style.cursor = 'default';
       };
 
-      if (isResizing) {
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-      }
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
 
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
@@ -259,7 +270,7 @@ export default function App() {
         }
       };
     }
-  }, [isResizing, activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden]);
+  }, [isResizing]); // Only re-run if resizing state changes (affects mousemove/mouseup)
 
   // Address Bar Auto-hide logic
   useEffect(() => {
@@ -297,10 +308,17 @@ export default function App() {
   };
 
   const handleCloseTab = (id: string) => {
+    const { tabs, activeTabId } = stateRef.current;
     const closingTabIdx = tabs.findIndex(t => t.id === id);
+    if (closingTabIdx === -1) return;
+
     const newTabs = tabs.filter(t => t.id !== id);
-    
     setTabs(newTabs);
+    
+    // Clean up stale ref
+    if (browserRefs.current[id]) {
+      delete browserRefs.current[id];
+    }
     
     if (activeTabId === id) {
       if (newTabs.length > 0) {
@@ -449,7 +467,7 @@ export default function App() {
           {tabs.map((tab) => (
              <div key={tab.id} className={`w-full h-full ${activeTabId === tab.id ? 'block' : 'hidden'}`}>
                 <Browser 
-                  ref={(el) => { if (el) browserRefs.current[tab.id] = el; }}
+                  ref={(el) => { browserRefs.current[tab.id] = el; }}
                   url={tab.url} 
                   isActive={activeTabId === tab.id && view === 'browser'} 
                   isAddressBarTriggered={isHoveringAddressBarEdge}

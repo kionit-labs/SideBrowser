@@ -36,11 +36,10 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    const mainWin = Array.from(windowManager.values())[0]?.win;
-    if (mainWin) {
-      if (mainWin.isMinimized()) mainWin.restore();
-      mainWin.show();
-      mainWin.focus();
+    const firstState = Array.from(windowManager.values())[0];
+    if (firstState) {
+      if (firstState.win.isMinimized()) firstState.win.restore();
+      triggerFocus(firstState);
     }
   });
 }
@@ -328,6 +327,9 @@ function triggerFocus(state: WindowState) {
     win.focus();
   }
 
+  // Explicitly trigger expansion in the renderer
+  win.webContents.send('window-focus');
+
   setTimeout(() => {
     if (!win.isDestroyed()) {
       win.setAlwaysOnTop(true, 'pop-up-menu');
@@ -406,7 +408,7 @@ function createWindow(isSecondary = false) {
   const state: WindowState = {
     win,
     currentSnapSide,
-    isWindowOpen: false,
+    isWindowOpen: true, // Window starts shown
     isPinned: false,
     isAutoSnap: true
   };
@@ -483,11 +485,13 @@ function createWindow(isSecondary = false) {
 
   win.on('focus', () => {
     if (win.isDestroyed()) return;
-    state.isWindowOpen = true;
-    win.setIgnoreMouseEvents(false);
-    win.moveTop();
-    win.setAlwaysOnTop(true, 'pop-up-menu');
-    win.webContents.send('window-focus');
+    // When window gets focus, ensure it's on top and interactive IF it's supposed to be open
+    if (state.isWindowOpen) {
+      win.setIgnoreMouseEvents(false);
+      win.moveTop();
+      win.setAlwaysOnTop(true, 'pop-up-menu');
+      win.webContents.send('window-focus');
+    }
   });
 
   win.on('closed', () => {
@@ -615,8 +619,7 @@ app.whenReady().then(async () => {
         click: () => { 
           const firstState = Array.from(windowManager.values())[0];
           if (firstState && !firstState.win.isDestroyed()) {
-            firstState.win.show();
-            firstState.win.focus();
+            triggerFocus(firstState);
           }
         } 
       },
@@ -628,8 +631,7 @@ app.whenReady().then(async () => {
     tray.on('click', () => { 
       const firstState = Array.from(windowManager.values())[0];
       if (firstState && !firstState.win.isDestroyed()) { 
-        firstState.win.show(); 
-        firstState.win.focus(); 
+        triggerFocus(firstState);
       }
     });
   } catch (err) {
