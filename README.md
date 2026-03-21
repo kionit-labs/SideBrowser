@@ -26,20 +26,20 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 | Version | Description |
 |---------|-------------|
 | **[SideBrowser-Setup.exe](https://github.com/kionit-labs/SideBrowser/releases)** | Recommended. Includes auto-updates and full installation. |
-| **[SideBrowser-Portable.exe](https://github.com/kionit-labs/SideBrowser/releases)** | Standalone executable. No installation required. |
+| **[SideBrowser.exe](https://github.com/kionit-labs/SideBrowser/releases)** | Standalone executable. No installation required. |
 
 ---
 
 ## 🎬 Showcase
 
-<!-- 
-TIP: You can add your cool GIFs here! 
-Replace the placeholder below with: ![Showcase](public/assets/demo.gif)
--->
 
 <div align="center">
   <p align="center">
-    <i>(Short demo GIF of the slide-out action goes here)</i>
+    <i>
+
+https://github.com/user-attachments/assets/6b6b18d8-6657-41f2-99a7-3f0856cb5d19
+
+</i>
   </p>
 </div>
 
