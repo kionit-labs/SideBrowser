@@ -33,3 +33,19 @@ Thumbs.db
 
 # Temp
 tmp_app/
+
+# AI & Assistant files
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+.aider*
+task.md
+implementation_plan.md
+walkthrough.md
+research_notes.md
+
+# Diagnostic Scripts
+check-version.js
+check-win-ses.js
