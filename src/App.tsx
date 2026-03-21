@@ -4,7 +4,7 @@ import {
   Home, Settings as SettingsIcon, ArrowLeft, ArrowRight, ChevronsLeft, 
   Volume2, Monitor, RotateCw, ExternalLink, Copy, Layers, 
   Smartphone, Database, Trash2, Sidebar as SidebarIcon, MinusCircle, VolumeX,
-  Globe
+  Globe, X
 } from 'lucide-react';
 import Browser, { type BrowserRef } from './Browser';
 import Settings from './Settings';
@@ -86,14 +86,17 @@ const TabIcon = ({ domain, title, className = "w-full h-full" }: { domain: strin
 
 export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
-  const { settings, isLoading } = useSettings();
+  const { settings, updateSetting, isLoading } = useSettings();
   const { t } = useTranslation();
   const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
+  
+  const isSecondary = new URLSearchParams(window.location.search).get('isSecondary') === 'true';
   
   const [view, setView] = useState<'home' | 'browser' | 'settings'>('home');
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [contextMenuTabId, setContextMenuTabId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
 
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [isAutoEdgeSnapping, setIsAutoEdgeSnapping] = useState(true);
@@ -104,7 +107,13 @@ export default function App() {
   const resizeStartY = useRef(0);
 
   const [isHoveringAddressBarEdge, setIsHoveringAddressBarEdge] = useState(false);
+  const [isTranslateUIOpen, setIsTranslateUIOpen] = useState(false);
   const browserRefs = useRef<Record<string, BrowserRef>>({});
+
+  // Reset translate state on view changes or tab changes
+  useEffect(() => {
+    setIsTranslateUIOpen(false);
+  }, [view, activeTabId]);
 
   // Lifecycle to sync slideSide with settings (important for startup initialization)
   useEffect(() => {
@@ -143,9 +152,93 @@ export default function App() {
       const focusHandler = () => {
         setIsBlurred(false);
       };
+      const autoHideToggledHandler = (isPinned: boolean) => {
+        setIsAutoHideLossFocus(!isPinned);
+      };
+
+      const windowShortcutHandler = (type: string, data?: any) => {
+        const activeBrowser = activeTabId ? browserRefs.current[activeTabId] : null;
+        
+        switch (type) {
+          case 'next-tab': {
+            setTabs(prevTabs => {
+              if (prevTabs.length > 1) {
+                const currentIdx = prevTabs.findIndex(t => t.id === activeTabId);
+                const nextIdx = (currentIdx + 1) % prevTabs.length;
+                setActiveTabId(prevTabs[nextIdx].id);
+                setView('browser');
+              }
+              return prevTabs;
+            });
+            break;
+          }
+          case 'prev-tab': {
+            setTabs(prevTabs => {
+              if (prevTabs.length > 1) {
+                const currentIdx = prevTabs.findIndex(t => t.id === activeTabId);
+                const prevIdx = (currentIdx - 1 + prevTabs.length) % prevTabs.length;
+                setActiveTabId(prevTabs[prevIdx].id);
+                setView('browser');
+              }
+              return prevTabs;
+            });
+            break;
+          }
+          case 'switch-tab': {
+            setTabs(prevTabs => {
+              if (prevTabs[data]) {
+                setActiveTabId(prevTabs[data].id);
+                setView('browser');
+              }
+              return prevTabs;
+            });
+            break;
+          }
+          case 'close-tab': {
+            if (activeTabId) handleCloseTab(activeTabId);
+            break;
+          }
+          case 'home':
+            setView('home');
+            break;
+          case 'toggle-sidebar':
+            setIsSidebarHidden(prev => !prev);
+            break;
+          case 'toggle-mute':
+            setIsGlobalMuted(prev => !prev);
+            break;
+          case 'open-settings':
+            setView('settings');
+            break;
+          case 'add-favorite': {
+            setTabs(prevTabs => {
+              const activeTab = prevTabs.find(t => t.id === activeTabId);
+              if (activeTab) {
+                const newShortcut = {
+                  id: Date.now().toString(),
+                  name: activeTab.title || activeTab.domain || 'Favorite',
+                  url: activeTab.url
+                };
+                updateSetting('shortcuts', [...settings.shortcuts, newShortcut]);
+              }
+              return prevTabs;
+            });
+            break;
+          }
+          case 'reload': activeBrowser?.reload(); break;
+          case 'zoom-in': activeBrowser?.zoomIn(); break;
+          case 'zoom-out': activeBrowser?.zoomOut(); break;
+          case 'zoom-reset': activeBrowser?.zoomReset(); break;
+          case 'devtools': activeBrowser?.openDevTools(); break;
+          case 'go-back': activeBrowser?.goBack(); break;
+          case 'go-forward': activeBrowser?.goForward(); break;
+        }
+      };
 
       (window as any).electronAPI.onWindowBlur(blurHandler);
       (window as any).electronAPI.onWindowFocus(focusHandler);
+      (window as any).electronAPI.onAutoHideToggled(autoHideToggledHandler);
+      (window as any).electronAPI.onWindowShortcut(windowShortcutHandler);
 
       const handleMouseMove = (e: MouseEvent) => {
         if (isResizing) {
@@ -175,10 +268,12 @@ export default function App() {
         if ((window as any).electronAPI.removeAllListeners) {
           (window as any).electronAPI.removeAllListeners('window-blur');
           (window as any).electronAPI.removeAllListeners('window-focus');
+          (window as any).electronAPI.removeAllListeners('auto-hide-toggled');
+          (window as any).electronAPI.removeAllListeners('window-shortcut');
         }
       };
     }
-  }, [isResizing]);
+  }, [isResizing, activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden]);
 
   // Address Bar Auto-hide logic
   useEffect(() => {
@@ -216,10 +311,21 @@ export default function App() {
   };
 
   const handleCloseTab = (id: string) => {
-    setTabs(prev => prev.filter(t => t.id !== id));
+    const closingTabIdx = tabs.findIndex(t => t.id === id);
+    const newTabs = tabs.filter(t => t.id !== id);
+    
+    setTabs(newTabs);
+    
     if (activeTabId === id) {
-      setActiveTabId(null);
-      setView('home');
+      if (newTabs.length > 0) {
+        // Switch to next available tab (at the same index or last)
+        const nextIdx = Math.min(closingTabIdx, newTabs.length - 1);
+        setActiveTabId(newTabs[nextIdx].id);
+        // keep view as 'browser'
+      } else {
+        setActiveTabId(null);
+        setView('home');
+      }
     }
     setContextMenuTabId(null);
   };
@@ -255,6 +361,18 @@ export default function App() {
       }}
     >
       {/* Moved Drag Handle to end - see below */}
+
+      {/* Context Menu Backdrop - reliable click-away for everything including Webviews */}
+      {contextMenuTabId && (
+        <div 
+          className="fixed inset-0 z-[9998] bg-transparent cursor-default" 
+          onClick={() => setContextMenuTabId(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenuTabId(null);
+          }}
+        />
+      )}
 
       {/* Resize Capture Overlay - Prevents webview from stealing events during resize */}
       {isResizing && (
@@ -349,6 +467,7 @@ export default function App() {
                   url={tab.url} 
                   isActive={activeTabId === tab.id && view === 'browser'} 
                   isAddressBarTriggered={isHoveringAddressBarEdge}
+                  onTranslateAction={(active) => setIsTranslateUIOpen(active)}
                   onStateChange={(state) => {
                     setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, url: state.url, title: state.title, domain: state.domain || t.domain } : t));
                   }} 
@@ -361,17 +480,17 @@ export default function App() {
       {/* Sidebar - Positioned on right, always rounded on the right edge */}
       {!isSidebarHidden && (
         <div 
-          className={`w-[68px] flex flex-col justify-between items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 rounded-r-[var(--app-radius)]`}
+          className={`w-[60px] h-full flex flex-col items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 rounded-r-[var(--app-radius)]`}
           style={{ 
             backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
             color: 'var(--theme-text)'
           }}
-          onClick={(e) => e.stopPropagation()} // Prevent clicking sidebar from closing context menu immediately
+          onClick={(e) => e.stopPropagation()} 
         >
-          {/* Top Group */}
-          <div className="flex flex-col gap-3 w-full items-center relative" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {/* Top Group: Navigation & Home */}
+          <div className="flex flex-col gap-3 w-full items-center shrink-0 mb-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
             {/* Back/Forward Arrows */}
-            <div className="flex items-center justify-center gap-2 mb-1">
+            <div className="flex items-center justify-center gap-2">
               <button 
                 onClick={() => {
                   if (activeTabId && browserRefs.current[activeTabId]) {
@@ -405,123 +524,85 @@ export default function App() {
                 }} 
                 className={`w-full aspect-square flex items-center justify-center rounded-lg transition-all duration-200 ${view === 'home' ? 'bg-[var(--theme-active)] text-white' : 'hover:bg-white/10'}`}
               >
-                <Home size={22} />
+                <Home size={28} />
               </button>
-            </div>
-
-            {/* Dynamic Site Icons */}
-            <div className="flex flex-col gap-3 mt-2 w-full items-center relative">
-              {tabs.map(tab => (
-                <div key={tab.id} className="relative w-full flex justify-center group">
-                  <button 
-                    onClick={() => {
-                       setView('browser');
-                       if (contextMenuTabId === tab.id) {
-                          setContextMenuTabId(null);
-                       } else if (activeTabId === tab.id && view === 'browser') {
-                          setContextMenuTabId(tab.id);
-                       } else {
-                          setActiveTabId(tab.id);
-                          setContextMenuTabId(null);
-                       }
-                    }} 
-                    className={`w-10 h-10 flex items-center justify-center rounded-full bg-white transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'border-2 border-[#6ea0d3] scale-105 shadow-md' : 'border-0 hover:scale-105'}`}
-                  >
-                    <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
-                  </button>
-
-                  {/* Tab Context Menu Overlay */}
-                  {contextMenuTabId === tab.id && (
-                    <div className="absolute top-1/2 -translate-y-1/2 right-[72px] bg-[var(--theme-sidebar)] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 p-4 min-w-[340px] flex flex-col gap-4 z-50 origin-right transition-all">
-                      {/* Header */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                          <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
-                        </div>
-                        <div className="flex flex-col overflow-hidden leading-tight justify-center">
-                          <span className="text-[var(--theme-text)] font-semibold truncate text-sm">{tab.title}</span>
-                          <span className="text-[var(--theme-text)] opacity-50 text-xs truncate max-w-[240px]">{tab.url}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Actions Row */}
-                      <div className="flex items-center justify-between text-[var(--theme-text)]">
-                        <button onClick={() => browserRefs.current[tab.id]?.goBack()} title={t('app.sidebar.back')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.goForward()} title={t('app.sidebar.forward')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
-                        <button onClick={() => browserRefs.current[tab.id]?.reload()} title={t('app.sidebar.refresh')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
-                        <button onClick={() => window.open(tab.url, '_blank')} title={t('app.sidebar.openExternal')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
-                        <button onClick={() => navigator.clipboard.writeText(tab.url)} title={t('app.sidebar.copyUrl')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
-                        <button title={t('app.sidebar.independentWindow')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
-                        
-                        <button 
-                          onClick={() => {
-                            const muted = browserRefs.current[tab.id]?.toggleMute();
-                            setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMuted: !!muted } : t));
-                          }} 
-                          title={tab.isMuted ? t('app.sidebar.unmute') : t('app.sidebar.mute')} 
-                          className={`p-1.5 rounded-md transition-colors ${tab.isMuted ? 'text-red-500 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
-                        >
-                          <Volume2 size={18} className={tab.isMuted ? 'opacity-100' : ''} />
-                        </button>
-                        
-                        <button 
-                          onClick={() => {
-                            const mobile = browserRefs.current[tab.id]?.toggleDevice();
-                            setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMobile: !!mobile } : t));
-                          }} 
-                          title={t('app.sidebar.deviceEmulation')} 
-                          className={`p-1.5 rounded-md transition-colors ${tab.isMobile ? 'text-blue-500 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
-                        >
-                          <Smartphone size={18} />
-                        </button>
-                        
-                        <button title={t('app.sidebar.clearData')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
-                        <button onClick={() => handleCloseTab(tab.id)} title={t('app.sidebar.deleteTab')} className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Bottom Group */}
-          <div className="flex flex-col gap-2 w-full items-center mb-2 px-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
-            <div className="grid grid-cols-2 gap-1.5 w-full text-[var(--theme-text)] opacity-40">
+          {/* Middle Group: Scrollable Tabs */}
+          <div className="flex-1 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-3 py-2 scroll-smooth" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            {tabs.map(tab => (
+              <div key={tab.id} className="relative w-full flex justify-center shrink-0">
+                <button 
+                  onClick={(e) => {
+                     e.stopPropagation();
+                     setView('browser');
+                     const rect = e.currentTarget.getBoundingClientRect();
+                     setMenuPos({ top: rect.top + rect.height / 2, right: window.innerWidth - rect.left + 4 });
+                     
+                     // Simple toggle: if not active, set active. If active, toggle menu.
+                     if (activeTabId !== tab.id || view !== 'browser') {
+                        setActiveTabId(tab.id);
+                        setContextMenuTabId(null);
+                     } else {
+                        // Already active tab: toggle menu
+                        setContextMenuTabId(contextMenuTabId === tab.id ? null : tab.id);
+                     }
+                  }} 
+                  className={`w-10 h-10 flex items-center justify-center rounded-full bg-white transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'border-2 border-[#6ea0d3] scale-105 shadow-md' : 'border-0 hover:scale-105'}`}
+                >
+                  <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          {/* Bottom Group: Fixed Grid */}
+          <div className="w-full shrink-0 flex flex-col items-center mt-2 px-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            <div className="grid grid-cols-2 gap-1 w-full text-[var(--theme-text)] opacity-40">
+              {isSecondary && (
+                <button 
+                  onClick={() => (window as any).electronAPI?.closeWindow()} 
+                  title={t('app.sidebar.closeWindow')}
+                  className="col-span-2 flex items-center justify-center p-1.5 hover:bg-red-500/20 hover:text-red-500 rounded-lg transition-all duration-200"
+                >
+                  <X size={21} />
+                </button>
+              )}
               <button 
                 onClick={() => { if ((window as any).electronAPI) (window as any).electronAPI.hideWindow() }} 
                 title={t('app.sidebar.hideWindow')}
                 className="flex items-center justify-center hover:opacity-100 transition-opacity p-1"
               >
-                <ChevronsLeft size={18} />
+                <ChevronsLeft size={21} />
               </button>
               <button 
                 onClick={() => setIsAutoHideLossFocus(!isAutoHideLossFocus)}
                 title={t('app.sidebar.autoHideFocus')}
                 className={`flex items-center justify-center transition-all p-1 ${isAutoHideLossFocus ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
-                <MinusCircle size={18} />
+                <MinusCircle size={21} />
               </button>
               <button 
                 onClick={() => setIsGlobalMuted(!isGlobalMuted)}
                 title={t('app.sidebar.muteAll')}
                 className={`flex items-center justify-center transition-all p-1 ${isGlobalMuted ? 'text-red-500 opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
-                {isGlobalMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                {isGlobalMuted ? <VolumeX size={21} /> : <Volume2 size={21} />}
               </button>
               <button 
                 onClick={() => setIsSidebarHidden(!isSidebarHidden)}
                 title={t('app.sidebar.hideSidebar')}
                 className={`flex items-center justify-center transition-all p-1 ${isSidebarHidden ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
-                <SidebarIcon size={18} />
+                <SidebarIcon size={21} />
               </button>
               <button 
                 onClick={() => setIsAutoEdgeSnapping(!isAutoEdgeSnapping)}
                 title={t('app.sidebar.autoSnap')}
                 className={`flex items-center justify-center transition-all p-1 ${isAutoEdgeSnapping ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
-                <Monitor size={18} />
+                <Monitor size={21} />
               </button>
               <button 
                 onClick={() => {
@@ -529,9 +610,9 @@ export default function App() {
                   setContextMenuTabId(null);
                 }}
                 title={t('app.sidebar.settings')}
-                className={`flex items-center justify-center transition-all p-1 ${view === 'settings' ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
+                className={`flex items-center justify-center transition-all p-1 rounded-lg ${view === 'settings' ? 'text-[var(--theme-active)] opacity-100 scale-110' : 'hover:opacity-100'}`}
               >
-                <SettingsIcon size={18} />
+                <SettingsIcon size={21} />
               </button>
             </div>
           </div>
@@ -539,13 +620,18 @@ export default function App() {
       )}
 
       {/* Global Drag Handle - Excludes sidebar area (68px) so nav buttons remain clickable */}
-      <div 
-        className="absolute top-0 left-0 h-10 z-[9999] pointer-events-auto" 
-        style={{ WebkitAppRegion: 'drag', right: isSidebarHidden ? '0px' : '68px' } as any} 
-      />
+      {!isTranslateUIOpen && (
+        <div 
+          className="absolute top-0 left-0 h-10 z-[9999] pointer-events-auto" 
+          style={{ 
+            WebkitAppRegion: 'drag', 
+            right: isSidebarHidden ? '0px' : '60px' 
+          } as any} 
+        />
+      )}
 
       {/* Address Bar Detection Zones - THIN STRIP to prevent click-blocking */}
-      {settings.addressBar === 'Top' && (
+      {settings.addressBar === 'Top' && !isTranslateUIOpen && (
         <div 
           className="absolute top-0 left-0 right-0 h-4 z-[10000] bg-transparent pointer-events-auto"
           style={{ WebkitAppRegion: 'no-drag' } as any}
@@ -553,7 +639,6 @@ export default function App() {
             setIsHoveringAddressBarEdge(true);
           }}
           onMouseMove={() => {
-            // Re-trigger show on move if we are in the zone
             if (!isHoveringAddressBarEdge) setIsHoveringAddressBarEdge(true);
           }}
         />
@@ -566,6 +651,71 @@ export default function App() {
             if (!isHoveringAddressBarEdge) setIsHoveringAddressBarEdge(true);
           }}
         />
+      )}
+      {/* Tab Context Menu Overlay - Root Level for Z-Index */}
+      {contextMenuTabId && (
+        <div 
+          className="fixed bg-[var(--theme-sidebar)] rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 p-4 min-w-[340px] flex flex-col gap-4 z-[10005] origin-right transition-all pointer-events-auto"
+          style={{ 
+            top: menuPos.top, 
+            right: menuPos.right,
+            transform: 'translateY(-50%)' 
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Menu Content */}
+          {tabs.find(t => t.id === contextMenuTabId) && (
+            <>
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                  <TabIcon domain={tabs.find(t => t.id === contextMenuTabId)!.domain} title={tabs.find(t => t.id === contextMenuTabId)!.title} className="w-full h-full" />
+                </div>
+                <div className="flex flex-col overflow-hidden leading-tight justify-center">
+                  <span className="text-[var(--theme-text)] font-semibold truncate text-sm">{tabs.find(t => t.id === contextMenuTabId)!.title}</span>
+                  <span className="text-[var(--theme-text)] opacity-50 text-xs truncate max-w-[240px]">{tabs.find(t => t.id === contextMenuTabId)!.url}</span>
+                </div>
+              </div>
+              
+              {/* Actions Row */}
+              <div className="flex items-center justify-between text-[var(--theme-text)]">
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goBack()} title={t('app.sidebar.back')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goForward()} title={t('app.sidebar.forward')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.reload()} title={t('app.sidebar.refresh')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
+                <button onClick={() => window.open(tabs.find(t => t.id === contextMenuTabId)!.url, '_blank')} title={t('app.sidebar.openExternal')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
+                <button onClick={() => navigator.clipboard.writeText(tabs.find(t => t.id === contextMenuTabId)!.url)} title={t('app.sidebar.copyUrl')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
+                <button title={t('app.sidebar.independentWindow')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
+                
+                <button 
+                  onClick={() => {
+                    const tab = tabs.find(t => t.id === contextMenuTabId)!;
+                    const muted = browserRefs.current[tab.id]?.toggleMute();
+                    setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMuted: !!muted } : t));
+                  }} 
+                  title={tabs.find(t => t.id === contextMenuTabId)!.isMuted ? t('app.sidebar.unmute') : t('app.sidebar.mute')} 
+                  className={`p-1.5 rounded-md transition-colors ${tabs.find(t => t.id === contextMenuTabId)!.isMuted ? 'text-red-500 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
+                >
+                  <Volume2 size={18} className={tabs.find(t => t.id === contextMenuTabId)!.isMuted ? 'opacity-100' : ''} />
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    const tab = tabs.find(t => t.id === contextMenuTabId)!;
+                    const mobile = browserRefs.current[tab.id]?.toggleDevice();
+                    setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMobile: !!mobile } : t));
+                  }} 
+                  title={t('app.sidebar.deviceEmulation')} 
+                  className={`p-1.5 rounded-md transition-colors ${tabs.find(t => t.id === contextMenuTabId)!.isMobile ? 'text-blue-500 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
+                >
+                  <Smartphone size={18} />
+                </button>
+                
+                <button title={t('app.sidebar.clearData')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
+                <button onClick={() => handleCloseTab(contextMenuTabId!)} title={t('app.sidebar.deleteTab')} className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </motion.div>
   );
