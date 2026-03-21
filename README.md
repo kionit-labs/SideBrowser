@@ -33,8 +33,9 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 ## 🎬 Showcase
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/0a6103be-fc86-475f-8f54-52cf92b518a9" autoplay loop muted playsinline width="100%"></video>
+  <img src="https://github.com/user-attachments/assets/37d9f6e1-a813-4c1e-a47b-3a4c92edddef" width="100%" alt="SideBrowser Showcase" />
 </div>
+
 
 ---
 
