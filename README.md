@@ -34,9 +34,11 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 
 
 <div align="center">
+  <p align="center">
+      
+<video src="https://github.com/user-attachments/assets/0a6103be-fc86-475f-8f54-52cf92b518a9" autoplay loop muted playsinline width="100%"></video>
 
-![SideBrowser Showcase](https://github.com/user-attachments/assets/6a43456d-fc33-4b29-b709-213e13b70a06)
-
+  </p>
 </div>
 
 ---
