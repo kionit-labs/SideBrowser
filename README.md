@@ -32,10 +32,10 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 
 ## 🎬 Showcase
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/37d9f6e1-a813-4c1e-a47b-3a4c92edddef" width="100%" alt="SideBrowser Showcase" />
-</div>
 
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/37d9f6e1-a813-4c1e-a47b-3a4c92edddef" width="100%">
+</div>
 
 ---
 
