@@ -25,16 +25,10 @@ interface Tab {
 const TabIcon = ({ domain, title, className = "w-full h-full" }: { domain: string, title: string, className?: string }) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setLoaded(false);
     setError(false);
-
-    // Immediate check for cached images
-    if (imgRef.current?.complete) {
-      setLoaded(true);
-    }
   }, [domain]);
 
   if (!domain) {
@@ -53,7 +47,6 @@ const TabIcon = ({ domain, title, className = "w-full h-full" }: { domain: strin
         </div>
       )}
       <img 
-        ref={imgRef}
         key={domain}
         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
         alt={title} 

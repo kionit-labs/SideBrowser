@@ -47,29 +47,66 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
 
+  const lastReportedUrlRef = useRef<string>('');
+  const domainChangeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const syncParentState = (webview: any, forceUrl?: string) => {
     if (!webview) return;
     const u = forceUrl || webview.getURL();
     const t = webview.getTitle();
+    
     let d = '';
     try {
       const urlObj = new URL(u);
       d = urlObj.hostname.replace('www.', '');
-      
-      // If we are on a Google redirector page, don't update the domain yet.
-      // This prevents "ghost" icons from appearing based on regional Google search result metadata.
-      if (urlObj.hostname.includes('google.') && urlObj.pathname === '/url') {
-        d = ''; 
-      }
     } catch (e) {}
 
-    onStateChangeRef.current({
-      url: u,
-      title: t,
-      domain: d,
-      canGoBack: webview.canGoBack(),
-      canGoForward: webview.canGoForward()
-    });
+    // 1. Filter out known "ghost" intermediate URLs immediately
+    if (u.includes('google.') && u.includes('/url?')) {
+      // Don't report Google redirector URLs at all to avoid flicker
+      return; 
+    }
+
+    // 2. Target the YouTube ghosting specifically
+    // If we're on Google and it briefly hits YouTube, it's a ghost.
+    const isGhostYouTube = d === 'youtube.com' && !lastReportedUrlRef.current.includes('youtube.com');
+
+    const updateParent = (finalDomain?: string) => {
+      lastReportedUrlRef.current = u;
+      onStateChangeRef.current({
+        url: u,
+        title: t,
+        domain: finalDomain,
+        canGoBack: webview.canGoBack(),
+        canGoForward: webview.canGoForward()
+      });
+    };
+
+    if (isGhostYouTube) {
+      // Ghost navs are usually < 100ms. Wait 250ms to be sure.
+      if (domainChangeTimerRef.current) clearTimeout(domainChangeTimerRef.current);
+      domainChangeTimerRef.current = setTimeout(() => {
+        updateParent(d);
+      }, 250);
+      return;
+    }
+
+    // Default: Small debounce for all domain changes to skip blips
+    if (domainChangeTimerRef.current) clearTimeout(domainChangeTimerRef.current);
+    domainChangeTimerRef.current = setTimeout(() => {
+      updateParent(d);
+    }, 150);
+
+    // Still update URL/Title immediately for UX, but keep domain stable
+    if (u !== lastReportedUrlRef.current) {
+      onStateChangeRef.current({
+        url: u,
+        title: t,
+        domain: undefined, // Freeze current domain
+        canGoBack: webview.canGoBack(),
+        canGoForward: webview.canGoForward()
+      });
+    }
   };
 
   useImperativeHandle(ref, () => ({
