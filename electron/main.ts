@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut } from 'electron';
+import type { WebContents } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
@@ -35,10 +36,11 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
+    const mainWin = Array.from(windowManager.values())[0]?.win;
+    if (mainWin) {
+      if (mainWin.isMinimized()) mainWin.restore();
+      mainWin.show();
+      mainWin.focus();
     }
   });
 }
@@ -46,7 +48,6 @@ if (!gotTheLock) {
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
 
-let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
@@ -99,14 +100,31 @@ function focusClick(edge: 'left' | 'right') {
 }
 
 // ═══════════════════════════════════════════════════
-// State
+// State: Multi-window Management
 // ═══════════════════════════════════════════════════
 
-let currentSnapSide: 'left' | 'right' | null = null;
+interface WindowState {
+  win: BrowserWindow;
+  currentSnapSide: 'left' | 'right';
+  isPinned: boolean;
+  isAutoSnap: boolean;
+  isWindowOpen: boolean;
+}
+
+const windowManager = new Map<number, WindowState>();
 let edgeCheckInterval: NodeJS.Timeout | null = null;
-let isPinned = false;
-let isAutoSnap = true;
-let isWindowOpen = false;
+
+function getWindowState(webContents: WebContents): WindowState | undefined {
+  const win = BrowserWindow.fromWebContents(webContents);
+  if (!win) return undefined;
+  return windowManager.get(win.id);
+}
+
+function getFocusedWindowState(): WindowState | undefined {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return undefined;
+  return windowManager.get(win.id);
+}
 
 // ═══════════════════════════════════════════════════
 // Edge Detection (ONLY for opening)
@@ -115,46 +133,194 @@ let isWindowOpen = false;
 function startEdgeCheck() {
   if (!edgeCheckInterval) {
     edgeCheckInterval = setInterval(() => {
-      if (!win || isWindowOpen || !currentSnapSide) return;
-      
       const point = screen.getCursorScreenPoint();
-      const bounds = win.getBounds();
-      const winDisplay = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
-      const mouseDisplay = screen.getDisplayNearestPoint(point);
       
-      // ONLY trigger if the mouse is on the SAME display as the window
-      if (winDisplay.id !== mouseDisplay.id) return;
+      windowManager.forEach((state) => {
+        const { win, isWindowOpen, currentSnapSide } = state;
+        if (win.isDestroyed() || isWindowOpen || !currentSnapSide) return;
+        
+        const bounds = win.getBounds();
+        const winDisplay = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+        const mouseDisplay = screen.getDisplayNearestPoint(point);
+        
+        if (winDisplay.id !== mouseDisplay.id) return;
 
-      const workArea = mouseDisplay.workArea;
+        const workArea = mouseDisplay.workArea;
 
-      if (
-        (currentSnapSide === 'left' && point.x <= workArea.x + 1) ||
-        (currentSnapSide === 'right' && point.x >= workArea.x + workArea.width - 2)
-      ) {
-        triggerFocus();
-      }
+        if (
+          (currentSnapSide === 'left' && point.x <= workArea.x + 1) ||
+          (currentSnapSide === 'right' && point.x >= workArea.x + workArea.width - 2)
+        ) {
+          triggerFocus(state);
+        }
+      });
     }, 50);
   }
 }
 
 // ═══════════════════════════════════════════════════
-// Panel Open / Close
+// Global Shortcuts
 // ═══════════════════════════════════════════════════
 
-function triggerFocus() {
-  if (!win) return;
+function registerGlobalShortcuts() {
+  globalShortcut.unregisterAll();
+
+  const shortcutShowHide = store.get('shortcutShowHide');
+  const shortcutAutoHide = store.get('shortcutAutoHide');
+
+  if (shortcutShowHide) {
+    try {
+      const success = globalShortcut.register(shortcutShowHide, () => {
+        const state = getFocusedWindowState();
+        if (!state) {
+          // If no window focused, maybe show the first one?
+          const first = Array.from(windowManager.values())[0];
+          if (first) triggerFocus(first);
+          return;
+        }
+
+        if (state.isWindowOpen && state.win.isFocused()) {
+          retractWindow(state);
+        } else {
+          triggerFocus(state);
+        }
+      });
+      if (!success) console.warn('Failed to register show/hide shortcut:', shortcutShowHide);
+    } catch (e) {
+      console.error('Error registering show/hide shortcut:', e);
+    }
+  }
+
+  if (shortcutAutoHide) {
+    try {
+      const success = globalShortcut.register(shortcutAutoHide, () => {
+        const state = getFocusedWindowState();
+        if (state) {
+          state.isPinned = !state.isPinned;
+          state.win.webContents.send('auto-hide-toggled', state.isPinned);
+        }
+      });
+      if (!success) console.warn('Failed to register auto-hide shortcut:', shortcutAutoHide);
+    } catch (e) {
+      console.error('Error registering auto-hide shortcut:', e);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// In-window Shortcuts
+// ═══════════════════════════════════════════════════
+
+function setupShortcutHandlers(webContents: WebContents) {
+  webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+
+    const control = process.platform === 'darwin' ? input.meta : input.control;
+    const shift = input.shift;
+
+    if (control) {
+      const state = getWindowState(webContents);
+      const win = state?.win;
+
+      // Tab management
+      if (input.key === 'Tab') {
+        win?.webContents.send('window-shortcut', shift ? 'prev-tab' : 'next-tab');
+        event.preventDefault();
+      } else if (input.key >= '1' && input.key <= '9') {
+        win?.webContents.send('window-shortcut', 'switch-tab', parseInt(input.key) - 1);
+        event.preventDefault();
+      }
+      
+      // Standard Browser actions
+      switch (input.key.toLowerCase()) {
+        case 'n':
+          createWindow(true); // Open new browser window as secondary
+          event.preventDefault();
+          break;
+        case 't':
+          win?.webContents.send('window-shortcut', 'home');
+          event.preventDefault();
+          break;
+        case 'w':
+          win?.webContents.send('window-shortcut', 'close-tab');
+          event.preventDefault();
+          break;
+        case 'b':
+          win?.webContents.send('window-shortcut', 'toggle-sidebar');
+          event.preventDefault();
+          break;
+        case 'r':
+          win?.webContents.send('window-shortcut', 'reload');
+          event.preventDefault();
+          break;
+        case 'm':
+          win?.webContents.send('window-shortcut', 'toggle-mute');
+          event.preventDefault();
+          break;
+        case ',':
+          win?.webContents.send('window-shortcut', 'open-settings');
+          event.preventDefault();
+          break;
+        case 'd':
+          win?.webContents.send('window-shortcut', 'add-favorite');
+          event.preventDefault();
+          break;
+        case '=': 
+        case '+':
+          win?.webContents.send('window-shortcut', 'zoom-in');
+          event.preventDefault();
+          break;
+        case '-':
+          win?.webContents.send('window-shortcut', 'zoom-out');
+          event.preventDefault();
+          break;
+        case '0':
+          win?.webContents.send('window-shortcut', 'zoom-reset');
+          event.preventDefault();
+          break;
+        case 'arrowleft':
+          win?.webContents.send('window-shortcut', 'go-back');
+          event.preventDefault();
+          break;
+        case 'arrowright':
+          win?.webContents.send('window-shortcut', 'go-forward');
+          event.preventDefault();
+          break;
+        case 'i':
+          if (shift) {
+            win?.webContents.send('window-shortcut', 'devtools');
+            event.preventDefault();
+          }
+          break;
+      }
+    } else {
+      // F-Keys
+      if (input.key === 'F5') {
+        getWindowState(webContents)?.win.webContents.send('window-shortcut', 'reload');
+        event.preventDefault();
+      } else if (input.key === 'F12') {
+        getWindowState(webContents)?.win.webContents.send('window-shortcut', 'devtools');
+        event.preventDefault();
+      }
+    }
+  });
+}
+
+
+function triggerFocus(state: WindowState) {
+  const { win, currentSnapSide } = state;
+  if (win.isDestroyed()) return;
+  
   win.setIgnoreMouseEvents(false);
-  isWindowOpen = true;
+  state.isWindowOpen = true;
 
   win.show();
   win.setAlwaysOnTop(true, 'screen-saver');
 
-  // V16: After 300ms, use robotjs to physically click INTO the window
-  // This is the EXACT same pattern the original Slide Browser uses
   if (process.platform === 'win32') {
     setTimeout(() => {
-      if (win && !win.isDestroyed() && isWindowOpen) {
-        focusClick(currentSnapSide || 'right');
+      if (!win.isDestroyed() && state.isWindowOpen) {
+        focusClick(currentSnapSide);
       }
     }, 300);
   } else {
@@ -162,9 +328,8 @@ function triggerFocus() {
     win.focus();
   }
 
-  // Settle to normal top level
   setTimeout(() => {
-    if (win && !win.isDestroyed()) {
+    if (!win.isDestroyed()) {
       win.setAlwaysOnTop(true, 'pop-up-menu');
     }
   }, 100);
@@ -172,8 +337,9 @@ function triggerFocus() {
   startEdgeCheck();
 }
 
-function retractWindow() {
-  if (!win || !isWindowOpen) return;
+function retractWindow(state: WindowState) {
+  const { win, isWindowOpen, isAutoSnap, isPinned } = state;
+  if (win.isDestroyed() || !isWindowOpen) return;
   if (!isAutoSnap) return;
   if (isPinned) return;
 
@@ -193,11 +359,11 @@ function retractWindow() {
     win.setBounds({ x: workArea.x + workArea.width - bounds.width, y: bounds.y, width: bounds.width, height: bounds.height });
   }
 
-  currentSnapSide = side;
+  state.currentSnapSide = side;
   win.setAlwaysOnTop(true, 'floating');
   win.setIgnoreMouseEvents(true, { forward: true });
   win.webContents.send('window-blur', side);
-  isWindowOpen = false;
+  state.isWindowOpen = false;
 
   startEdgeCheck();
 }
@@ -206,15 +372,15 @@ function retractWindow() {
 // Main Window
 // ═══════════════════════════════════════════════════
 
-function createWindow() {
+function createWindow(isSecondary = false) {
   const primaryDisplay = screen.getPrimaryDisplay();
   const workArea = primaryDisplay.workArea;
 
   const initialWidth = store.get('window-width') || 600;
   const lastSnapSide = store.get('defaultSnapSide') || 'right';
-  currentSnapSide = lastSnapSide.toLowerCase() as 'left' | 'right';
+  const currentSnapSide = (lastSnapSide.toLowerCase() as 'left' | 'right') || 'right';
 
-  win = new BrowserWindow({
+  const win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
     width: initialWidth,
     height: 600,
@@ -237,81 +403,50 @@ function createWindow() {
     },
   });
 
-  // Set listener limit specifically for WebContents to prevent did-stop-loading warnings
+  const state: WindowState = {
+    win,
+    currentSnapSide,
+    isWindowOpen: false,
+    isPinned: false,
+    isAutoSnap: true
+  };
+
+  windowManager.set(win.id, state);
+
   win.webContents.setMaxListeners(100);
 
-  // Apply high listener limits to EVERY webview that attaches
   win.webContents.on('did-attach-webview', (_event, webContents) => {
      webContents.setMaxListeners(100);
+     setupShortcutHandlers(webContents);
   });
 
-  // Attempt 4: Handle OAuth Popups (Matching Slide Browser's SECRET)
-  app.on('web-contents-created', (_event, contents) => {
-    if (contents.getType() === 'webview') {
-      contents.setWindowOpenHandler(({ url }) => {
-        const oauthDomains = [
-            "https://accounts.google.com", 
-            "googlepopupredirect", 
-            "https://appleid.apple.com/auth/authorize",
-            "https://login.microsoftonline.com/",
-            "https://login.live.com/oauth20_authorize"
-        ];
-        
-        if (oauthDomains.some(d => url.includes(d))) {
-          return {
-            action: 'allow',
-            overrideBrowserWindowOptions: {
-              width: 800,
-              height: 600,
-              alwaysOnTop: true,
-              autoHideMenuBar: true,
-              webPreferences: {
-                contextIsolation: true,
-                nodeIntegration: false,
-                sandbox: true
-              }
-            }
-          };
-        }
-        return { action: 'deny' };
-      });
-    }
-  });
+  setupShortcutHandlers(win.webContents);
 
-  // Sync initial opacity from store
+  const queryParams = isSecondary ? '?isSecondary=true' : '';
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL + queryParams);
+  } else {
+    win.loadFile(path.join(process.env.DIST || '', 'index.html'), { query: isSecondary ? { isSecondary: 'true' } : {} });
+  }
+
   const savedOpacity = store.get('transparency') ?? 0.95;
   win.setOpacity(savedOpacity);
-
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  // Position window based on last snap side
   const initialX = currentSnapSide === 'left' 
     ? workArea.x 
     : workArea.x + workArea.width - initialWidth;
 
-  win.setBounds({
-    x: initialX,
-    y: workArea.y + Math.floor((workArea.height - 600) / 2),
-    width: initialWidth,
-    height: 600
-  });
+  const autoCenter = store.get('autoCenter') ?? false;
+  const initialY = autoCenter 
+    ? workArea.y + Math.floor((workArea.height - 600) / 2)
+    : store.get('window-y') ?? (workArea.y + Math.floor((workArea.height - 600) / 2));
 
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(path.join(process.env.DIST || '', 'index.html'));
-  }
-
-  win.once('ready-to-show', () => {
-    if (win) {
-      const savedOpacity = store.get('transparency') ?? 0.95;
-      win.setOpacity(savedOpacity);
-    }
-  });
+  win.setBounds({ x: initialX, y: initialY, width: initialWidth, height: 600 });
 
   win.on('moved', () => {
-    if (!win) return;
-    if (isAutoSnap) {
+    if (win.isDestroyed()) return;
+    if (state.isAutoSnap) {
       const bounds = win.getBounds();
       const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
       const workArea = display.workArea;
@@ -319,38 +454,50 @@ function createWindow() {
       const distLeft = bounds.x - workArea.x;
       const distRight = (workArea.x + workArea.width) - (bounds.x + bounds.width);
 
+      let newX = bounds.x;
+      let newY = bounds.y;
+
       if (distLeft < distRight) {
-        win.setBounds({ x: workArea.x, y: bounds.y, width: bounds.width, height: bounds.height });
-        currentSnapSide = 'left';
+        newX = workArea.x;
+        state.currentSnapSide = 'left';
       } else {
-        win.setBounds({ x: workArea.x + workArea.width - bounds.width, y: bounds.y, width: bounds.width, height: bounds.height });
-        currentSnapSide = 'right';
+        newX = workArea.x + workArea.width - bounds.width;
+        state.currentSnapSide = 'right';
       }
       
-      // Persist the new snap side
-      store.set('defaultSnapSide', currentSnapSide);
+      if (store.get('autoCenter')) {
+        newY = workArea.y + Math.floor((workArea.height - bounds.height) / 2);
+      } else if (!isSecondary) {
+        store.set('window-y', bounds.y);
+      }
+
+      win.setBounds({ x: Math.round(newX), y: Math.round(newY), width: bounds.width, height: bounds.height });
+      if (!isSecondary) store.set('defaultSnapSide', state.currentSnapSide);
     }
   });
 
-  // V16: Native blur handles closing - robotjs gives us REAL focus,
-  // so blur fires naturally when user clicks elsewhere
   win.on('blur', () => {
-    if (!win) return;
-    retractWindow();
+    if (win.isDestroyed()) return;
+    retractWindow(state);
   });
 
   win.on('focus', () => {
-    if (!win) return;
-    isWindowOpen = true;
+    if (win.isDestroyed()) return;
+    state.isWindowOpen = true;
     win.setIgnoreMouseEvents(false);
     win.moveTop();
     win.setAlwaysOnTop(true, 'pop-up-menu');
     win.webContents.send('window-focus');
   });
 
-  ipcMain.on('window-mouse-enter', () => {
-    if (win && !win.isFocused()) {
-      triggerFocus();
+  win.on('closed', () => {
+    windowManager.delete(win.id);
+  });
+
+  ipcMain.on('window-mouse-enter', (event) => {
+    const state = getWindowState(event.sender);
+    if (state && !state.win.isFocused()) {
+      triggerFocus(state);
     }
   });
 }
@@ -365,7 +512,6 @@ app.on('window-all-closed', () => {
       blocker.disableBlockingInSession(session.defaultSession);
     }
     app.quit();
-    win = null;
   }
 });
 
@@ -385,9 +531,10 @@ app.whenReady().then(async () => {
       addressBar: 'Hidden',
       autoLaunch: false,
       translateEnabled: false,
+      passwordManagerDuration: 0,
       passwordManagerEnabled: false,
       alwaysOnTop: true,
-      autoCenter: true,
+      autoCenter: false,
       defaultSnapSide: 'right',
       autoUpdate: true
     }
@@ -399,6 +546,12 @@ app.whenReady().then(async () => {
       passwords: []
     }
   } as any);
+
+  // Force autoCenter to false if not previously migrated to this version
+  if (store.get('autoCenterFixed') === undefined) {
+    store.set('autoCenter', false);
+    store.set('autoCenterFixed', true);
+  }
 
   // Initialize defaults if missing
   const defaults = {
@@ -413,7 +566,7 @@ app.whenReady().then(async () => {
     translateEnabled: false,
     passwordManagerEnabled: false,
     alwaysOnTop: true,
-    autoCenter: true,
+    autoCenter: false,
     defaultSnapSide: 'right',
     autoUpdate: true
   };
@@ -438,7 +591,10 @@ app.whenReady().then(async () => {
   }
 
   // Apply initial global states
-  if (store.get('alwaysOnTop') && win) win.setAlwaysOnTop(true, 'screen-saver');
+  const firstState = Array.from(windowManager.values())[0];
+  if (store.get('alwaysOnTop') && firstState && !firstState.win.isDestroyed()) {
+    firstState.win.setAlwaysOnTop(true, 'screen-saver');
+  }
   if (store.get('autoLaunch')) {
      app.setLoginItemSettings({
       openAtLogin: true,
@@ -454,19 +610,35 @@ app.whenReady().then(async () => {
     const trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
     tray = new Tray(trayIcon);
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Show Side Browser', click: () => { win?.show(); win?.focus(); } },
+      { 
+        label: 'Show Side Browser', 
+        click: () => { 
+          const firstState = Array.from(windowManager.values())[0];
+          if (firstState && !firstState.win.isDestroyed()) {
+            firstState.win.show();
+            firstState.win.focus();
+          }
+        } 
+      },
       { type: 'separator' },
       { label: 'Quit', click: () => { app.quit(); } }
     ]);
     tray.setToolTip('SideBrowser');
     tray.setContextMenu(contextMenu);
-    tray.on('click', () => { win?.show(); win?.focus(); });
+    tray.on('click', () => { 
+      const firstState = Array.from(windowManager.values())[0];
+      if (firstState && !firstState.win.isDestroyed()) { 
+        firstState.win.show(); 
+        firstState.win.focus(); 
+      }
+    });
   } catch (err) {
     console.warn("Failed to create Tray icon:", err);
   }
 
   createWindow();
   startEdgeCheck();
+  registerGlobalShortcuts();
 
   // ═══════════════════════════════════════════════════
   // Auto Updater
@@ -572,88 +744,68 @@ app.whenReady().then(async () => {
 // IPC Handlers
 // ═══════════════════════════════════════════════════
 
-ipcMain.handle('get-preload-path', () => path.join(__dirname, 'webview-preload.js'));
-ipcMain.handle('get-store-val', (_event, key) => store ? store.get(key) : undefined);
-ipcMain.on('set-store-val', (_event, key, val) => {
-  if (store) store.set(key, val);
-  if (key === 'transparency' && win) {
-    win.setOpacity(val);
-  }
-  if (key === 'adblockEnabled') {
-    const ses = session.defaultSession;
-    if (val && blocker) {
-      blocker.enableBlockingInSession(ses);
-    } else {
-      blocker?.disableBlockingInSession(ses);
-    }
-  }
-});
-
-// Passwords IPC (storage only, no auto-fill)
-ipcMain.handle('get-passwords', () => passwordsStore?.get('passwords') || []);
-
-ipcMain.on('save-passwords', (_event, passwords) => {
-  passwordsStore?.set('passwords', passwords);
-});
 ipcMain.on('clear-passwords', () => {
-    passwordsStore?.set('passwords', []);
+    if (passwordsStore) passwordsStore.set('passwords', []);
 });
-ipcMain.on('hide-window', () => {
-    if (win) {
-       isPinned = false;
-       win.blur();
-       win.webContents.send('window-blur', currentSnapSide || 'right');
-       startEdgeCheck();
-    }
+
+ipcMain.on('hide-window', (event) => {
+  const state = getWindowState(event.sender);
+  if (state) {
+    state.isPinned = false;
+    state.win.blur();
+    state.win.webContents.send('window-blur', state.currentSnapSide);
+    startEdgeCheck();
+  }
 });
-ipcMain.on('set-auto-hide', (_event, enabled) => {
-  isPinned = enabled;
+ipcMain.on('set-auto-hide', (event, enabled) => {
+  const state = getWindowState(event.sender);
+  if (state) state.isPinned = enabled;
 });
 
 // Updates Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
-ipcMain.on('check-for-updates', () => {
+ipcMain.on('check-for-updates', (event) => {
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {
-      win?.webContents.send('update-message', 'Error checking for updates', true);
+      event.sender.send('update-message', 'Error checking for updates', true);
     });
   } else {
-    win?.webContents.send('update-message', 'Updates disabled in dev mode', true);
+    event.sender.send('update-message', 'Updates disabled in dev mode', true);
   }
 });
+function broadcastUpdateMessage(msg: string, isError: boolean) {
+  windowManager.forEach(state => {
+    state.win.webContents.send('update-message', msg, isError);
+  });
+}
+
 ipcMain.on('open-external', (_event, url) => {
   shell.openExternal(url);
 });
 
-// AutoUpdater events routing to renderer
-autoUpdater.on('checking-for-update', () => {
-  win?.webContents.send('update-message', 'Checking for updates...', false);
-});
-autoUpdater.on('update-available', (info) => {
-  win?.webContents.send('update-message', `Update v${info.version} available! Downloading...`, false);
-});
-autoUpdater.on('update-not-available', () => {
-  win?.webContents.send('update-message', 'You are up to date', false);
-});
-autoUpdater.on('error', (err) => {
-  win?.webContents.send('update-message', 'Error: ' + err.message, true);
-});
-autoUpdater.on('download-progress', (progressObj) => {
-  win?.webContents.send('update-message', `Downloading: ${Math.round(progressObj.percent)}%`, false);
-});
-autoUpdater.on('update-downloaded', () => {
-  win?.webContents.send('update-message', 'Update downloaded. Restart to install.', false);
-});
+// AutoUpdater events routing
+autoUpdater.on('checking-for-update', () => broadcastUpdateMessage('Checking for updates...', false));
+autoUpdater.on('update-available', (info) => broadcastUpdateMessage(`Update v${info.version} available! Downloading...`, false));
+autoUpdater.on('update-not-available', () => broadcastUpdateMessage('You are up to date', false));
+autoUpdater.on('error', (err) => broadcastUpdateMessage('Error: ' + err.message, true));
+autoUpdater.on('download-progress', (p) => broadcastUpdateMessage(`Downloading: ${Math.round(p.percent)}%`, false));
+autoUpdater.on('update-downloaded', () => broadcastUpdateMessage('Update downloaded. Restart to install.', false));
 
-ipcMain.on('set-auto-snap', (_event, enabled) => {
-  isAutoSnap = enabled;
-  if (enabled && win) {
-    win.emit('moved'); 
+ipcMain.on('set-auto-snap', (event, enabled) => {
+  const state = getWindowState(event.sender);
+  if (state) {
+    state.isAutoSnap = enabled;
+    if (enabled) {
+      state.win.emit('moved'); 
+    }
   }
 });
 
-ipcMain.on('window-resize', (_event, { deltaX, deltaY }) => {
-  if (!win) return;
+ipcMain.on('window-resize', (event, { deltaX, deltaY }) => {
+  const state = getWindowState(event.sender);
+  if (!state || state.win.isDestroyed()) return;
+
+  const { win, currentSnapSide } = state;
   const bounds = win.getBounds();
   const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
   const workArea = display.workArea;
@@ -672,8 +824,13 @@ ipcMain.on('window-resize', (_event, { deltaX, deltaY }) => {
     newX = workArea.x;
   }
 
-  // Vertical Resize (Always from bottom/corners, keeping top fixed)
+  // Vertical Resize
   newHeight = bounds.height + deltaY;
+  
+  // Apply Auto-Center if enabled
+  if (store.get('autoCenter')) {
+    newY = workArea.y + Math.floor((workArea.height - newHeight) / 2);
+  }
 
   // Enforce mins
   newWidth = Math.max(300, Math.min(newWidth, workArea.width - 50));
@@ -692,6 +849,29 @@ ipcMain.on('window-resize', (_event, { deltaX, deltaY }) => {
   });
 
   store.set('window-width', newWidth);
+  if (!store.get('autoCenter')) {
+    store.set('window-y', newY);
+  }
+});
+
+function centerWindowVertically(targetWin: BrowserWindow) {
+  const bounds = targetWin.getBounds();
+  const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+  const workArea = display.workArea;
+  const newY = workArea.y + Math.floor((workArea.height - bounds.height) / 2);
+  targetWin.setBounds({ x: bounds.x, y: newY, width: bounds.width, height: bounds.height });
+}
+
+ipcMain.on('set-auto-center', (_event, enabled: boolean) => {
+  store.set('autoCenter', enabled);
+  if (enabled) {
+    windowManager.forEach(state => centerWindowVertically(state.win));
+  }
+});
+
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.close();
 });
 
 // Settings Handlers
@@ -705,8 +885,42 @@ ipcMain.on('set-auto-launch', (_event, enabled: boolean) => {
 });
 
 ipcMain.on('set-always-on-top', (_event, enabled: boolean) => {
-  if (win) {
-    win.setAlwaysOnTop(enabled, 'screen-saver');
-  }
+  windowManager.forEach(state => {
+    state.win.setAlwaysOnTop(enabled, 'screen-saver');
+  });
   if (store) store.set('alwaysOnTop', enabled);
+});
+
+ipcMain.handle('get-store-value', (_event, key) => {
+  return store?.get(key);
+});
+
+ipcMain.on('set-store-value', (_event, key, value) => {
+  if (store) {
+    store.set(key, value);
+    if (key === 'transparency') {
+      windowManager.forEach(state => state.win.setOpacity(value));
+    }
+    if (key === 'shortcutShowHide' || key === 'shortcutAutoHide') {
+      registerGlobalShortcuts();
+    }
+    if (key === 'adblockEnabled') {
+      const ses = session.defaultSession;
+      if (value && blocker) {
+        blocker.enableBlockingInSession(ses);
+      } else {
+        blocker?.disableBlockingInSession(ses);
+      }
+    }
+  }
+});
+
+ipcMain.handle('get-preload-path', () => path.join(__dirname, 'webview-preload.js'));
+
+ipcMain.handle('get-passwords', () => {
+  return passwordsStore?.get('passwords') || [];
+});
+
+ipcMain.on('save-passwords', (_event, passwords) => {
+  if (passwordsStore) passwordsStore.set('passwords', passwords);
 });

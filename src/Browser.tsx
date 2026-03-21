@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings, useTranslation } from './contexts/SettingsContext';
-import { Globe, Lock } from 'lucide-react';
+import { Globe, Lock, Languages } from 'lucide-react';
 
 export interface BrowserRef {
   goBack: () => void;
@@ -11,16 +11,22 @@ export interface BrowserRef {
   toggleMute: () => boolean;
   toggleDevice: () => boolean;
   setGlobalMute: (muted: boolean) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomReset: () => void;
+  openDevTools: () => void;
+  isInputFocused: boolean;
 }
 
 interface BrowserProps {
   url: string;
   isActive: boolean;
   isAddressBarTriggered: boolean;
+  onTranslateAction?: (active: boolean) => void;
   onStateChange: (state: { url: string; title: string; domain?: string; canGoBack: boolean; canGoForward: boolean }) => void;
 }
 
-const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onStateChange }, ref) => {
+const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onTranslateAction, onStateChange }, ref) => {
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
   const [currentUrl, setCurrentUrl] = useState(url);
@@ -29,6 +35,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   const { settings } = useSettings();
   const { t } = useTranslation();
   const addressBarPos = settings.addressBar;
+  const [isTranslateActive, setIsTranslateActive] = useState(false);
 
   // Track initial URL so we only set 'src' once.
   // This prevents ERR_ABORTED errors when the parent state syncs.
@@ -46,7 +53,14 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     const t = webview.getTitle();
     let d = '';
     try {
-      d = new URL(u).hostname.replace('www.', '');
+      const urlObj = new URL(u);
+      d = urlObj.hostname.replace('www.', '');
+      
+      // If we are on a Google redirector page, don't update the domain yet.
+      // This prevents "ghost" icons from appearing based on regional Google search result metadata.
+      if (urlObj.hostname.includes('google.') && urlObj.pathname === '/url') {
+        d = ''; 
+      }
     } catch (e) {}
 
     onStateChangeRef.current({
@@ -83,6 +97,22 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
     setGlobalMute: (muted: boolean) => {
       webviewRef.current?.setAudioMuted(muted);
     },
+    zoomIn: () => {
+      if (!webviewRef.current) return;
+      const currentLevel = webviewRef.current.getZoomLevel();
+      webviewRef.current.setZoomLevel(currentLevel + 0.5);
+    },
+    zoomOut: () => {
+      if (!webviewRef.current) return;
+      const currentLevel = webviewRef.current.getZoomLevel();
+      webviewRef.current.setZoomLevel(currentLevel - 0.5);
+    },
+    zoomReset: () => {
+      webviewRef.current?.setZoomLevel(0);
+    },
+    openDevTools: () => {
+      webviewRef.current?.openDevTools();
+    },
     isInputFocused
   }));
 
@@ -96,11 +126,19 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
       syncParentState(webview, u);
     };
 
+    const handleNewNavigation = () => {
+      setIsTranslateActive(false);
+      if (onTranslateAction) onTranslateAction(false);
+    };
+
     const listeners = [
       ['did-finish-load', handleStateUpdate],
       ['did-stop-loading', handleStateUpdate],
       ['load-commit', handleStateUpdate],
-      ['did-navigate', handleStateUpdate],
+      ['did-navigate', (e: any) => {
+        handleStateUpdate(e);
+        handleNewNavigation();
+      }],
       ['did-navigate-in-page', handleStateUpdate],
       ['did-frame-finish-load', handleStateUpdate],
       ['page-title-updated', handleStateUpdate],
@@ -190,8 +228,6 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   if (!preloadPath) return null;
 
   // Absolute Transparency for Pixel Perfection:
-  // We remove all insets and background fills. The webview now meets the container edge exactly at 0px.
-  // We use the global --app-radius (24px) for perfect synchronization with the window edges.
   const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
   // Show bar if triggered by App (hover edge), OR if input is focused
@@ -212,6 +248,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         }}
         src={initialUrl}
         preload={preloadPath}
+        allowpopups
         useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         className="w-full h-full overflow-hidden"
         style={{ 
@@ -221,6 +258,70 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
           borderRadius: 'var(--app-radius) 0 0 var(--app-radius)'
         } as any}
       />
+
+      {/* Translate Button */}
+      {settings.translateEnabled && (
+        <button
+          onClick={() => {
+            if (webviewRef.current) {
+              if (isTranslateActive) {
+                // Remove Translation
+                const removeCode = `
+                  (function() {
+                    const elements = [
+                      'google_translate_element',
+                      'sidebrowser-translate-script',
+                      'goog-gt-tt'
+                    ];
+                    elements.forEach(id => {
+                      const el = document.getElementById(id);
+                      if (el) el.remove();
+                    });
+                    const frames = document.querySelectorAll('.skiptranslate');
+                    frames.forEach(f => f.remove());
+                    document.body.style.top = '0px';
+                  })();
+                `;
+                webviewRef.current.executeJavaScript(removeCode);
+                setIsTranslateActive(false);
+                if (onTranslateAction) onTranslateAction(false);
+              } else {
+                // Add Translation
+                const addCode = `
+                  (function() {
+                    if (document.getElementById('sidebrowser-translate-script')) return;
+                    
+                    const div = document.createElement('div');
+                    div.id = 'google_translate_element';
+                    div.style.cssText = 'position:fixed; top:35px; right:80px; z-index:2147483647; background:white; padding:5px; border-radius:8px; border:1px solid #ccc; box-shadow:0 2px 15px rgba(0,0,0,0.3);';
+                    document.body.appendChild(div);
+
+                    window.googleTranslateElementInit = function() {
+                      new google.translate.TranslateElement({
+                        pageLanguage: 'auto',
+                        layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL
+                      }, 'google_translate_element');
+                    };
+
+                    const script = document.createElement('script');
+                    script.id = 'sidebrowser-translate-script';
+                    script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+                    document.head.appendChild(script);
+                  })();
+                `;
+                webviewRef.current.executeJavaScript(addCode);
+                setIsTranslateActive(true);
+                if (onTranslateAction) onTranslateAction(true);
+              }
+            }
+          }}
+          className={`absolute top-4 right-4 z-[10006] p-2.5 rounded-full backdrop-blur-md border border-black/5 dark:border-white/10 shadow-lg transition-all duration-200 ${isTranslateActive ? 'bg-[var(--theme-active)] text-white scale-110 shadow-[0_0_15px_rgba(110,160,211,0.5)]' : 'text-[var(--theme-text)] hover:scale-110 active:scale-95'}`}
+          style={!isTranslateActive ? { backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) 80%, transparent)' } : {}}
+          title={t('general.translate')}
+        >
+          <Languages size={18} />
+        </button>
+      )}
 
       {/* The Address Bar */}
       {(addressBarPos === 'Top' || addressBarPos === 'Bottom') && (

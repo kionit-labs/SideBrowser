@@ -130,6 +130,82 @@ export default function Settings() {
     </div>
   );
 
+  const ShortcutRecorder = ({ label, value, onChange }: any) => {
+    const [isRecording, setIsRecording] = useState(false);
+    const { t } = useTranslation();
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (!isRecording) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const modifiers = [];
+      if (e.ctrlKey) modifiers.push('Ctrl');
+      if (e.altKey) modifiers.push('Alt');
+      if (e.shiftKey) modifiers.push('Shift');
+      if (e.metaKey) modifiers.push('Command');
+
+      // Key mapping for common keys
+      let key = e.key;
+      if (key === ' ') key = 'Space';
+      if (key === 'ArrowLeft') key = 'Left';
+      if (key === 'ArrowRight') key = 'Right';
+      if (key === 'ArrowUp') key = 'Up';
+      if (key === 'ArrowDown') key = 'Down';
+
+      if (key === 'Control' || key === 'Alt' || key === 'Shift' || key === 'Meta') return;
+      
+      // Upper case for letters, but keep F11 etc.
+      const displayKey = key.length === 1 ? key.toUpperCase() : key.charAt(0).toUpperCase() + key.slice(1);
+
+      const shortcut = [...modifiers, displayKey].join('+');
+
+      // Check for blocked shortcuts (In-window defaults)
+      const BLOCKED = [
+        'Ctrl+N', 'Ctrl+B', 'Ctrl+Tab', 'Ctrl+Shift+Tab', 
+        'Ctrl+W', 'Ctrl+T', 'Ctrl+Left', 'Ctrl+Right', 
+        'Ctrl++', 'Ctrl+-', 'Ctrl+0', 'Ctrl+R', 'F5', 
+        'Ctrl+Shift+I', 'F12', 'Ctrl+M', 'Ctrl+,', 'Ctrl+D'
+      ];
+      
+      const isDigit = modifiers.length === 1 && modifiers[0] === 'Ctrl' && /^[1-9]$/.test(displayKey);
+
+      if (BLOCKED.includes(shortcut) || isDigit) {
+        // You could show an alert here, but for now just stay in recording mode
+        return;
+      }
+
+      onChange(shortcut);
+      setIsRecording(false);
+    };
+
+    return (
+      <div className="flex items-center justify-between py-3 border-b border-white/5 group transition-all">
+        <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">{label}</span>
+        <div className="flex items-center gap-2">
+          <div
+            tabIndex={0}
+            onClick={() => setIsRecording(true)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => setIsRecording(false)}
+            className={`bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none w-44 text-center shrink-0 cursor-pointer transition-all ${isRecording ? 'border-[var(--theme-accent)] ring-1 ring-[var(--theme-accent)]/30 bg-[var(--theme-accent)]/10 font-bold animate-pulse' : 'hover:bg-zinc-700/40 opacity-80'}`}
+          >
+            {isRecording ? t('shortcuts.global.record' as any) || 'Recording...' : (value || t('shortcuts.global.record' as any))}
+          </div>
+          {value && (
+            <button 
+              onClick={() => onChange('')}
+              className="p-1.5 hover:bg-rose-500/10 text-rose-500/60 hover:text-rose-500 rounded-md transition-all"
+              title="Clear"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div 
       className="w-full h-full text-[var(--theme-text)] flex flex-col font-sans"
@@ -435,15 +511,17 @@ export default function Settings() {
                 <div className="flex flex-col pt-2">
                   <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">{t('shortcuts.global.title')}</h3>
                   
-                  <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">{t('shortcuts.global.toggleShow')}</span>
-                    <input type="text" readOnly placeholder={t('shortcuts.global.record')} className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
-                  </div>
+                  <ShortcutRecorder 
+                    label={t('shortcuts.global.toggleShow')} 
+                    value={settings.shortcutShowHide} 
+                    onChange={(val: string) => updateSetting('shortcutShowHide', val)} 
+                  />
                   
-                  <div className="flex items-center justify-between py-3 border-b border-white/5 group">
-                    <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-80 transition-colors pr-6">{t('shortcuts.global.toggleAutohide')}</span>
-                    <input type="text" readOnly placeholder={t('shortcuts.global.record')} className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] opacity-60 text-sm rounded-md px-3 py-1.5 outline-none w-40 text-center placeholder-zinc-500 shrink-0 cursor-pointer" />
-                  </div>
+                  <ShortcutRecorder 
+                    label={t('shortcuts.global.toggleAutohide')} 
+                    value={settings.shortcutAutoHide} 
+                    onChange={(val: string) => updateSetting('shortcutAutoHide', val)} 
+                  />
                 </div>
 
                 <div className="flex flex-col pt-8">

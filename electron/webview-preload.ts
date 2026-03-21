@@ -1,7 +1,13 @@
+import { ipcRenderer } from 'electron';
+
 // This script is injected into every <webview> to customize its appearance and behavior.
 
 window.addEventListener('load', () => {
   addCustomScrollbarStyle();
+});
+
+ipcRenderer.on('translate-page', () => {
+  // Now handled by executeJavaScript in Browser.tsx for better context compatibility
 });
 
 function addCustomScrollbarStyle() {

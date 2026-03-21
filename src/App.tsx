@@ -28,29 +28,15 @@ const TabIcon = ({ domain, title, className = "w-full h-full" }: { domain: strin
   const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    if (!domain) {
-      setError(true);
-      return;
-    }
-    
     setLoaded(false);
     setError(false);
-
-    // Fail-safe: if image hasn't loaded after 2 seconds, assume error/slow and show globe
-    const timer = setTimeout(() => {
-      if (!loaded) setError(true);
-    }, 2000);
 
     // Immediate check for cached images
     if (imgRef.current?.complete) {
       setLoaded(true);
-      clearTimeout(timer);
     }
-
-    return () => clearTimeout(timer);
   }, [domain]);
 
-  // If no domain, just show the fallback immediately
   if (!domain) {
     return (
       <div className={`relative ${className} flex items-center justify-center bg-white overflow-hidden`}>
@@ -551,7 +537,7 @@ export default function App() {
                   }} 
                   className={`w-10 h-10 flex items-center justify-center rounded-full bg-white transition-all duration-200 overflow-hidden ${activeTabId === tab.id && view === 'browser' ? 'scale-105 shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_0_0_1.5px_white,0_4px_12px_rgba(0,0,0,0.3)] z-20' : 'hover:scale-103 relative z-10'}`}
                 >
-                  <TabIcon domain={tab.domain} title={tab.title} className="w-full h-full" />
+                  <TabIcon key={tab.id} domain={tab.domain} title={tab.title} className="w-full h-full" />
                 </button>
               </div>
             ))}
@@ -655,10 +641,9 @@ export default function App() {
       {/* Tab Context Menu Overlay - Root Level for Z-Index */}
       {contextMenuTabId && (
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, x: 20 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          exit={{ opacity: 0, scale: 0.9, x: 20 }}
-          className="fixed bg-white/80 dark:bg-black/40 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20 dark:border-white/5 p-4 min-w-[340px] flex flex-col gap-4 z-[10005] origin-right transition-shadow pointer-events-auto"
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="fixed bg-[var(--theme-sidebar)] rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] border border-white/10 p-4 w-[340px] max-w-[340px] flex flex-col gap-4 z-[10005] origin-right pointer-events-auto overflow-hidden"
           style={{ 
             top: menuPos.top, 
             right: menuPos.right,
@@ -670,26 +655,24 @@ export default function App() {
           {tabs.find(t => t.id === contextMenuTabId) && (
             <>
               {/* Header */}
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center overflow-hidden shrink-0 border-2 border-white">
-                  <TabIcon domain={tabs.find(t => t.id === contextMenuTabId)!.domain} title={tabs.find(t => t.id === contextMenuTabId)!.title} className="w-full h-full" />
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                  <TabIcon key={contextMenuTabId} domain={tabs.find(t => t.id === contextMenuTabId)!.domain} title={tabs.find(t => t.id === contextMenuTabId)!.title} className="w-full h-full" />
                 </div>
-                <div className="flex flex-col overflow-hidden leading-tight justify-center py-1">
-                  <span className="text-[var(--theme-text)] font-bold truncate text-base">{tabs.find(t => t.id === contextMenuTabId)!.title}</span>
-                  <span className="text-[var(--theme-text)] opacity-40 text-xs truncate max-w-[240px] font-medium tracking-wide uppercase">{tabs.find(t => t.id === contextMenuTabId)!.domain}</span>
+                <div className="flex flex-col overflow-hidden leading-tight justify-center min-w-0">
+                  <span className="text-[var(--theme-text)] font-semibold truncate text-sm">{tabs.find(t => t.id === contextMenuTabId)!.title}</span>
+                  <span className="text-[var(--theme-text)] opacity-50 text-xs truncate">{tabs.find(t => t.id === contextMenuTabId)!.url}</span>
                 </div>
               </div>
               
-              <div className="h-px w-full bg-black/5 dark:bg-white/5" />
-
               {/* Actions Row */}
-              <div className="flex items-center justify-between text-[var(--theme-text)] gap-1">
-                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goBack()} title={t('app.sidebar.back')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><ArrowLeft size={18} /></button>
-                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goForward()} title={t('app.sidebar.forward')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><ArrowRight size={18} /></button>
-                <button onClick={() => browserRefs.current[contextMenuTabId!]?.reload()} title={t('app.sidebar.refresh')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><RotateCw size={18} /></button>
-                <button onClick={() => window.open(tabs.find(t => t.id === contextMenuTabId)!.url, '_blank')} title={t('app.sidebar.openExternal')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><ExternalLink size={18} /></button>
-                <button onClick={() => navigator.clipboard.writeText(tabs.find(t => t.id === contextMenuTabId)!.url)} title={t('app.sidebar.copyUrl')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><Copy size={18} /></button>
-                <button title={t('app.sidebar.independentWindow')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><Layers size={18} /></button>
+              <div className="flex items-center justify-between text-[var(--theme-text)]">
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goBack()} title={t('app.sidebar.back')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowLeft size={18} /></button>
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.goForward()} title={t('app.sidebar.forward')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ArrowRight size={18} /></button>
+                <button onClick={() => browserRefs.current[contextMenuTabId!]?.reload()} title={t('app.sidebar.refresh')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><RotateCw size={18} /></button>
+                <button onClick={() => window.open(tabs.find(t => t.id === contextMenuTabId)!.url, '_blank')} title={t('app.sidebar.openExternal')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><ExternalLink size={18} /></button>
+                <button onClick={() => navigator.clipboard.writeText(tabs.find(t => t.id === contextMenuTabId)!.url)} title={t('app.sidebar.copyUrl')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Copy size={18} /></button>
+                <button title={t('app.sidebar.independentWindow')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Layers size={18} /></button>
                 
                 <button 
                   onClick={() => {
@@ -698,7 +681,7 @@ export default function App() {
                     setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMuted: !!muted } : t));
                   }} 
                   title={tabs.find(t => t.id === contextMenuTabId)!.isMuted ? t('app.sidebar.unmute') : t('app.sidebar.mute')} 
-                  className={`p-2 rounded-xl transition-all ${tabs.find(t => t.id === contextMenuTabId)!.isMuted ? 'text-red-500 bg-red-400/10' : 'hover:bg-black/5 dark:hover:bg-white/10 opacity-70 hover:opacity-100'} hover:scale-110 active:scale-95`}
+                  className={`p-1.5 rounded-md transition-colors ${tabs.find(t => t.id === contextMenuTabId)!.isMuted ? 'text-red-500 bg-red-400/10 hover:bg-red-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                 >
                   {tabs.find(t => t.id === contextMenuTabId)!.isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                 </button>
@@ -710,13 +693,13 @@ export default function App() {
                     setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isMobile: !!mobile } : t));
                   }} 
                   title={t('app.sidebar.deviceEmulation')} 
-                  className={`p-2 rounded-xl transition-all ${tabs.find(t => t.id === contextMenuTabId)!.isMobile ? 'text-blue-500 bg-blue-400/10' : 'hover:bg-black/5 dark:hover:bg-white/10 opacity-70 hover:opacity-100'} hover:scale-110 active:scale-95`}
+                  className={`p-1.5 rounded-md transition-colors ${tabs.find(t => t.id === contextMenuTabId)!.isMobile ? 'text-blue-500 bg-blue-400/10 hover:bg-blue-400/20' : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'}`}
                 >
                   <Smartphone size={18} />
                 </button>
                 
-                <button title={t('app.sidebar.clearData')} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-all opacity-70 hover:opacity-100 hover:scale-110 active:scale-95"><Database strokeWidth={1.5} size={18} /></button>
-                <button onClick={() => handleCloseTab(contextMenuTabId!)} title={t('app.sidebar.deleteTab')} className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-all hover:scale-110 active:scale-95"><Trash2 size={18} /></button>
+                <button title={t('app.sidebar.clearData')} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors opacity-70 hover:opacity-100"><Database strokeWidth={1.5} size={18} /></button>
+                <button onClick={() => handleCloseTab(contextMenuTabId!)} title={t('app.sidebar.deleteTab')} className="p-1.5 hover:bg-red-500/20 text-red-500 rounded-md transition-colors"><Trash2 size={18} /></button>
               </div>
             </>
           )}

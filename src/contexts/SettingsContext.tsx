@@ -87,6 +87,7 @@ const translations = {
     'app.sidebar.deviceEmulation': 'Device Emulation',
     'app.sidebar.clearData': 'Remove website data',
     'app.sidebar.deleteTab': 'Delete tab',
+    'app.sidebar.closeWindow': 'Close Window',
     'app.sidebar.hideWindow': 'Hide Window',
     'app.sidebar.autoHideFocus': 'Auto hide window focus',
     'app.sidebar.muteAll': 'Mute all pages',
@@ -200,6 +201,7 @@ const translations = {
     'app.sidebar.deviceEmulation': 'Cihaz Emülasyonu',
     'app.sidebar.clearData': 'Web sitesi verilerini temizle',
     'app.sidebar.deleteTab': 'Sekmeyi sil',
+    'app.sidebar.closeWindow': 'Pencereyi Kapat',
     'app.sidebar.hideWindow': 'Pencereyi Gizle',
     'app.sidebar.autoHideFocus': 'Odak kaybında otomatik gizle',
     'app.sidebar.muteAll': 'Tüm sayfaları sustur',
@@ -313,6 +315,7 @@ const translations = {
     'app.sidebar.deviceEmulation': 'Geräteemulation',
     'app.sidebar.clearData': 'Webseitendaten entfernen',
     'app.sidebar.deleteTab': 'Tab löschen',
+    'app.sidebar.closeWindow': 'Fenster schließen',
     'app.sidebar.hideWindow': 'Fenster ausblenden',
     'app.sidebar.autoHideFocus': 'Automatisches Ausblenden bei Fokusverlust',
     'app.sidebar.muteAll': 'Alle Seiten stummschalten',
@@ -384,6 +387,8 @@ export interface SettingsState {
   transparency: number;
   defaultSnapSide: string;
   autoUpdate: boolean;
+  shortcutShowHide: string;
+  shortcutAutoHide: string;
   homeBackground: number;
   searchEngine: string;
   shortcuts: Shortcut[];
@@ -399,10 +404,12 @@ const defaultSettings: SettingsState = {
   adblockEnabled: true,
   passwordManagerEnabled: false,
   alwaysOnTop: true,
-  autoCenter: true,
+  autoCenter: false,
   transparency: 0.95,
   defaultSnapSide: 'right',
   autoUpdate: true,
+  shortcutShowHide: '',
+  shortcutAutoHide: '',
   homeBackground: 0,
   searchEngine: 'Google',
   shortcuts: [
@@ -462,6 +469,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       if (key === 'alwaysOnTop') {
         (window as any).electronAPI.setAlwaysOnTop(value);
+      }
+      if (key === 'autoCenter') {
+        (window as any).electronAPI.setAutoCenter(value);
       }
       if (key === 'themeColor' || key === 'darkMode') {
         setSettings(prev => {
