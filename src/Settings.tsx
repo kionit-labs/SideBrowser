@@ -341,6 +341,12 @@ export default function Settings() {
                 </div>
 
                 <ToggleItem 
+                  label={t('window.dynamicsidebar' as any)} 
+                  subtitle={t('window.dynamicsidebar.sub' as any)} 
+                  enabled={settings.dynamicSidebar} 
+                  onToggle={() => updateSetting('dynamicSidebar', !settings.dynamicSidebar)}
+                />
+                <ToggleItem 
                   label={t('window.alwaysontop')} 
                   subtitle={t('window.alwaysontop.sub')} 
                   enabled={settings.alwaysOnTop} 

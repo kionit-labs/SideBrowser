@@ -139,6 +139,7 @@ export default function App() {
     };
   }, [activeTabId, view, tabs, isAutoHideLossFocus, isAutoEdgeSnapping, isGlobalMuted, isSidebarHidden, settings]);
 
+  // Separate robust useEffect for stable IPC events
   useEffect(() => {
     if ((window as any).electronAPI) {
       const blurHandler = (side: string) => {
@@ -150,9 +151,11 @@ export default function App() {
           setContextMenuTabId(null);
         }, 50);
       };
+      
       const focusHandler = () => {
         setIsBlurred(false);
       };
+      
       const autoHideToggledHandler = (isPinned: boolean) => {
         setIsAutoHideLossFocus(!isPinned);
       };
@@ -238,7 +241,28 @@ export default function App() {
       (window as any).electronAPI.onWindowFocus(focusHandler);
       (window as any).electronAPI.onAutoHideToggled(autoHideToggledHandler);
       (window as any).electronAPI.onWindowShortcut(windowShortcutHandler);
+      
+      if ((window as any).electronAPI.onSnapSideChanged) {
+        (window as any).electronAPI.onSnapSideChanged((side: string) => {
+          setSlideSide(side);
+        });
+      }
 
+      return () => {
+        if ((window as any).electronAPI.removeAllListeners) {
+          (window as any).electronAPI.removeAllListeners('window-blur');
+          (window as any).electronAPI.removeAllListeners('window-focus');
+          (window as any).electronAPI.removeAllListeners('auto-hide-toggled');
+          (window as any).electronAPI.removeAllListeners('window-shortcut');
+          (window as any).electronAPI.removeAllListeners('snap-side-changed');
+        }
+      };
+    }
+  }, []);
+
+  // Separate useEffect for Resize handling
+  useEffect(() => {
+    if ((window as any).electronAPI) {
       const handleMouseMove = (e: MouseEvent) => {
         if (isResizing) {
           const deltaX = e.screenX - resizeStartX.current;
@@ -262,15 +286,9 @@ export default function App() {
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
-        if ((window as any).electronAPI.removeAllListeners) {
-          (window as any).electronAPI.removeAllListeners('window-blur');
-          (window as any).electronAPI.removeAllListeners('window-focus');
-          (window as any).electronAPI.removeAllListeners('auto-hide-toggled');
-          (window as any).electronAPI.removeAllListeners('window-shortcut');
-        }
       };
     }
-  }, [isResizing]); // Only re-run if resizing state changes (affects mousemove/mouseup)
+  }, [isResizing]);
 
   // Address Bar Auto-hide logic
   useEffect(() => {
@@ -347,12 +365,31 @@ export default function App() {
 
   if (isLoading) return <div className="h-screen w-screen bg-transparent" />;
 
+  // Force cast to boolean in case electron-store returned a string "false" / "true" unexpectedly
+  const isDynamicEnabled = String(settings.dynamicSidebar) === "true";
+  
+  // Decide sidebar position explicitly.
+  // Original default behavior: Sidebar is on the RIGHT.
+  let isDynamicReversed = false;
+  if (isDynamicEnabled) {
+     if (slideSide === 'right') {
+        // Browser is on the right screen edge. Sidebar should face inner (LEFT).
+        isDynamicReversed = true; 
+     } else if (slideSide === 'left') {
+        // Browser is on the left screen edge. Sidebar should face inner (RIGHT).
+        isDynamicReversed = false;
+     }
+  } else {
+     // Feature is OFF. Use classic default behavior (Sidebar on LEFT).
+     isDynamicReversed = false; 
+  }
+
   return (
     <motion.div
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/10 dark:border-white/5 relative rounded-[var(--app-radius)]`}
+      className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/10 dark:border-white/5 relative rounded-[var(--app-radius)] ${isDynamicReversed ? 'flex-row-reverse' : ''}`}
       style={rootStyle}
       onMouseEnter={() => {
         if (isBlurred && (window as any).electronAPI) {
@@ -447,11 +484,11 @@ export default function App() {
         {/* Sidebar Restorer Arrow (Absolute Overlay) */}
         {isSidebarHidden && (
           <div 
-            className="absolute right-0 top-0 bottom-0 w-8 z-50 flex items-center justify-end pr-0.5 opacity-0 hover:opacity-100 transition-opacity group cursor-pointer"
+            className={`absolute top-0 bottom-0 w-8 z-50 flex items-center justify-end pr-0.5 opacity-0 hover:opacity-100 transition-opacity group cursor-pointer ${isDynamicReversed ? 'left-0 justify-start pl-0.5' : 'right-0'}`}
             onClick={() => setIsSidebarHidden(false)}
           >
-            <div className="bg-[var(--theme-sidebar)] p-2 rounded-l-md text-[var(--theme-text)] shadow-xl border-y border-l border-black/30 backdrop-blur-md">
-              <ChevronsLeft size={24} className="opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+            <div className={`bg-[var(--theme-sidebar)] p-2 text-[var(--theme-text)] shadow-xl border-y border-black/30 backdrop-blur-md ${isDynamicReversed ? 'rounded-r-md border-r' : 'rounded-l-md border-l'}`}>
+              <ChevronsLeft size={24} className={`opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all ${isDynamicReversed ? 'rotate-180' : ''}`} />
             </div>
           </div>
         )}
@@ -481,10 +518,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sidebar - Positioned on right, always rounded on the right edge */}
+      {/* Sidebar */}
       {!isSidebarHidden && (
         <div 
-          className={`w-[60px] h-full flex flex-col items-center py-3 border-l border-black/10 dark:border-white/5 relative z-40 shrink-0 rounded-r-[var(--app-radius)]`}
+          className={`w-[60px] h-full flex flex-col items-center py-3 border-black/10 dark:border-white/5 relative z-40 shrink-0 ${isDynamicReversed ? 'border-r rounded-l-[var(--app-radius)]' : 'border-l rounded-r-[var(--app-radius)]'}`}
           style={{ 
             backgroundColor: 'color-mix(in srgb, var(--theme-sidebar) calc(var(--transparency) * 100%), transparent)',
             color: 'var(--theme-text)'

@@ -17,6 +17,7 @@ declare global {
     electronAPI: {
       onWindowBlur: (callback: (side: string) => void) => void;
       onWindowFocus: (callback: () => void) => void;
+      onSnapSideChanged: (callback: (side: string) => void) => void;
       sendMouseEnter: () => void;
       getStoreValue: (key: string) => Promise<any>;
       setStoreValue: (key: string, value: any) => void;

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
   onUpdateMessage: (callback: (msg: string, isError: boolean) => void) => ipcRenderer.on('update-message', (_event, msg, isError) => callback(msg, isError)),
+  onSnapSideChanged: (callback: (side: string) => void) => ipcRenderer.on('snap-side-changed', (_event, side) => callback(side)),
   // Password Manager (storage only)
   getPasswords: () => ipcRenderer.invoke('get-passwords'),
   savePasswords: (passwords: any[]) => ipcRenderer.send('save-passwords', passwords),

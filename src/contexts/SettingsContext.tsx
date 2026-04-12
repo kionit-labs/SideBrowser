@@ -25,6 +25,8 @@ const translations = {
     'general.password.sub': 'Automatically fill in login forms when password management is enabled',
     'window.transparency': 'Window Transparency',
     'window.transparency.sub': 'Adjusts the desktop transparency effect behind the UI.',
+    'window.dynamicsidebar': 'Dynamic Sidebar',
+    'window.dynamicsidebar.sub': 'Automatically move the sidebar to the inner edge based on snap position',
     'window.alwaysontop': 'Always On Top',
     'window.alwaysontop.sub': 'Keep the browser window above all other applications',
     'window.autocenter': 'Automatically Center Window',
@@ -139,6 +141,8 @@ const translations = {
     'general.password.sub': 'Parola yönetimi etkinleştirildiğinde giriş formlarını otomatik olarak doldur',
     'window.transparency': 'Pencere Şeffaflığı',
     'window.transparency.sub': 'Arayüzün arkasındaki masaüstü şeffaflık efektini ayarlar.',
+    'window.dynamicsidebar': 'Dinamik Kenar Çubuğu',
+    'window.dynamicsidebar.sub': 'Kenar çubuğunu yaslama konumuna göre otomatik olarak iç kenara taşı',
     'window.alwaysontop': 'Her Zaman Üstte',
     'window.alwaysontop.sub': 'Tarayıcı penceresini diğer tüm uygulamaların üzerinde tut',
     'window.autocenter': 'Pencereyi Otomatik Ortala',
@@ -253,6 +257,8 @@ const translations = {
     'general.password.sub': 'Anmeldeformulare automatisch ausfüllen, wenn der Passwort-Manager aktiviert ist',
     'window.transparency': 'Fenstertransparenz',
     'window.transparency.sub': 'Passt den Desktop-Transparenzeffekt hinter der Benutzeroberfläche an.',
+    'window.dynamicsidebar': 'Dynamische Seitenleiste',
+    'window.dynamicsidebar.sub': 'Seitenleiste basierend auf der Andockposition automatisch an den inneren Rand verschieben',
     'window.alwaysontop': 'Immer im Vordergrund',
     'window.alwaysontop.sub': 'Das Browserfenster über allen anderen Anwendungen halten',
     'window.autocenter': 'Fenster automatisch zentrieren',
@@ -391,6 +397,7 @@ export interface SettingsState {
   shortcutAutoHide: string;
   homeBackground: number;
   searchEngine: string;
+  dynamicSidebar: boolean;
   shortcuts: Shortcut[];
 }
 
@@ -412,6 +419,7 @@ const defaultSettings: SettingsState = {
   shortcutAutoHide: '',
   homeBackground: 0,
   searchEngine: 'Google',
+  dynamicSidebar: true,
   shortcuts: [
     { id: '1', name: 'Google', url: 'https://google.com' },
     { id: '2', name: 'Gemini', url: 'https://gemini.google.com' },

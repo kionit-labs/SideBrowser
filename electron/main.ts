@@ -474,7 +474,13 @@ function createWindow(isSecondary = false) {
       }
 
       win.setBounds({ x: Math.round(newX), y: Math.round(newY), width: bounds.width, height: bounds.height });
-      if (!isSecondary) store.set('defaultSnapSide', state.currentSnapSide);
+      if (!isSecondary) {
+         const oldSnapSide = store.get('defaultSnapSide');
+         store.set('defaultSnapSide', state.currentSnapSide);
+         if (oldSnapSide !== state.currentSnapSide) {
+             win.webContents.send('snap-side-changed', state.currentSnapSide);
+         }
+      }
     }
   });
 
