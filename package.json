@@ -60,6 +60,24 @@
         }
       ]
     },
+    "mac": {
+      "icon": "public/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "icon": "public/icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Browser"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

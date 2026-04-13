@@ -533,27 +533,31 @@ export default function Settings() {
                 <div className="flex flex-col pt-8">
                   <h3 className="text-lg font-bold text-[var(--theme-text)] mb-4">{t('shortcuts.window.title')}</h3>
                   
-                  {[
-                    [t('shortcuts.key.newWindow'), 'Ctrl + N'],
-                    [t('shortcuts.key.toggleSidebar'), 'Ctrl + B'],
-                    [t('shortcuts.key.nextTab'), 'Ctrl + Tab'],
-                    [t('shortcuts.key.prevTab'), 'Ctrl + Shift + Tab'],
-                    [t('shortcuts.key.specificTab'), 'Ctrl + 1~9'],
-                    [t('shortcuts.key.closeTab'), 'Ctrl + W'],
-                    [t('shortcuts.key.home'), 'Ctrl + T'],
-                    [t('shortcuts.key.back'), 'Ctrl + ←'],
-                    [t('shortcuts.key.forward'), 'Ctrl + →'],
-                    [t('shortcuts.key.zoomIn'), 'Ctrl + +'],
-                    [t('shortcuts.key.zoomOut'), 'Ctrl + -'],
-                    [t('shortcuts.key.zoomReset'), 'Ctrl + 0'],
-                    [t('shortcuts.key.refresh'), 'Ctrl + R'],
-                    [t('shortcuts.key.refresh'), 'F5'],
-                    [t('shortcuts.key.devtools'), 'Ctrl + Shift + I'],
-                    [t('shortcuts.key.devtools'), 'F12'],
-                    [t('shortcuts.key.mute'), 'Ctrl + M'],
-                    [t('shortcuts.key.settings'), 'Ctrl + ,'],
-                    [t('shortcuts.key.favorite'), 'Ctrl + D']
-                  ].map(([label, shortcut], i) => (
+                  {(() => {
+                    const isMac = navigator.userAgent.toLowerCase().includes('mac');
+                    const ctrl = isMac ? '⌘' : 'Ctrl';
+                    return [
+                      [t('shortcuts.key.newWindow'), `${ctrl} + N`],
+                      [t('shortcuts.key.toggleSidebar'), `${ctrl} + B`],
+                      [t('shortcuts.key.nextTab'), `${ctrl} + Tab`],
+                      [t('shortcuts.key.prevTab'), `${ctrl} + Shift + Tab`],
+                      [t('shortcuts.key.specificTab'), `${ctrl} + 1~9`],
+                      [t('shortcuts.key.closeTab'), `${ctrl} + W`],
+                      [t('shortcuts.key.home'), `${ctrl} + T`],
+                      [t('shortcuts.key.back'), `${ctrl} + ←`],
+                      [t('shortcuts.key.forward'), `${ctrl} + →`],
+                      [t('shortcuts.key.zoomIn'), `${ctrl} + +`],
+                      [t('shortcuts.key.zoomOut'), `${ctrl} + -`],
+                      [t('shortcuts.key.zoomReset'), `${ctrl} + 0`],
+                      [t('shortcuts.key.refresh'), `${ctrl} + R`],
+                      [t('shortcuts.key.refresh'), 'F5'],
+                      [t('shortcuts.key.devtools'), `${ctrl} + Shift + I`],
+                      [t('shortcuts.key.devtools'), 'F12'],
+                      [t('shortcuts.key.mute'), `${ctrl} + M`],
+                      [t('shortcuts.key.settings'), `${ctrl} + ,`],
+                      [t('shortcuts.key.favorite'), `${ctrl} + D`]
+                    ];
+                  })().map(([label, shortcut], i) => (
                     <div key={i} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-2 -mx-2 rounded-lg">
                       <span className="text-[15px] font-medium text-[var(--theme-text)] opacity-90">{label}</span>
                       <span className="text-[14px] font-mono font-medium text-[var(--theme-text)] opacity-60 bg-zinc-800/30 px-2 py-1 rounded">{shortcut}</span>

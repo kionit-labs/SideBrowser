@@ -27,8 +27,15 @@ process.on('uncaughtException', (error) => {
 
 // Optimization Switches for High-Performance Media & Stability
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// Linux transparency support
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-transparent-visuals');
+  // Disable hardware acceleration on Linux to prevent black screen issues on Wayland/X11 compositors
+  app.disableHardwareAcceleration();
+}
+
 // Removed AutomationControlled and enable-automation flags as they are often detected by Google
-// Removed global userAgentFallback to match Slide Browser's clean session-only approach
 
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock();
