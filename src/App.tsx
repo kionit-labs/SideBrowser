@@ -75,6 +75,7 @@ export default function App() {
   const { settings, updateSetting, isLoading } = useSettings();
   const { t } = useTranslation();
   const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
+  const isLinux = navigator.userAgent.toLowerCase().includes('linux');
   
   const isSecondary = new URLSearchParams(window.location.search).get('isSecondary') === 'true';
   
@@ -143,13 +144,15 @@ export default function App() {
   useEffect(() => {
     if ((window as any).electronAPI) {
       const blurHandler = (side: string) => {
-        // Small delay to ignore "flicker" blurs during tab closing/renders
+        // Increase delay on Linux to filter out transient focus losses during drag/OS ops
+        const delay = isLinux ? 150 : 50;
+        
         setTimeout(() => {
           if (document.hasFocus()) return; // If we still have focus, ignore the blur
           setSlideSide(side);
           setIsBlurred(true);
           setContextMenuTabId(null);
-        }, 50);
+        }, delay);
       };
       
       const focusHandler = () => {
@@ -388,7 +391,7 @@ export default function App() {
     <motion.div
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      transition={isLinux ? { duration: 0.15, ease: "easeOut" } : { type: 'spring', stiffness: 300, damping: 30 }}
       className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/10 dark:border-white/5 relative rounded-[var(--app-radius)] ${isDynamicReversed ? 'flex-row-reverse' : ''}`}
       style={rootStyle}
       onMouseEnter={() => {

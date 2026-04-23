@@ -115,6 +115,7 @@ interface WindowState {
   isPinned: boolean;
   isAutoSnap: boolean;
   isWindowOpen: boolean;
+  isMoving: boolean; // Tracking drag state to prevent blur loops on Linux
 }
 
 const windowManager = new Map<number, WindowState>();
@@ -417,7 +418,8 @@ function createWindow(isSecondary = false) {
     currentSnapSide,
     isWindowOpen: true, // Window starts shown
     isPinned: false,
-    isAutoSnap: true
+    isAutoSnap: true,
+    isMoving: false
   };
 
   windowManager.set(win.id, state);
@@ -452,6 +454,10 @@ function createWindow(isSecondary = false) {
     : store.get('window-y') ?? (workArea.y + Math.floor((workArea.height - 600) / 2));
 
   win.setBounds({ x: initialX, y: initialY, width: initialWidth, height: 600 });
+
+  win.on('will-move', () => {
+    state.isMoving = true;
+  });
 
   win.on('moved', () => {
     if (win.isDestroyed()) return;
@@ -489,10 +495,19 @@ function createWindow(isSecondary = false) {
          }
       }
     }
+    // Delay clearing isMoving to ensure blur events triggered by the move are processed/ignored
+    setTimeout(() => {
+      state.isMoving = false;
+    }, 100);
   });
 
   win.on('blur', () => {
     if (win.isDestroyed()) return;
+    // On Linux, moving/dragging the window often triggers a blur event.
+    // We suppress retraction if we are in the middle of a move.
+    if (process.platform === 'linux' && state.isMoving) {
+      return;
+    }
     retractWindow(state);
   });
 
