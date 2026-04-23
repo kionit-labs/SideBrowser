@@ -391,7 +391,7 @@ export default function App() {
     <motion.div
       initial={{ x: 0 }}
       animate={{ x: isBlurred ? slideOffset : 0, opacity: 1 }}
-      transition={isLinux ? { duration: 0.15, ease: "easeOut" } : { type: 'spring', stiffness: 300, damping: 30 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className={`flex h-screen w-screen bg-transparent overflow-hidden border border-black/10 dark:border-white/5 relative rounded-[var(--app-radius)] ${isDynamicReversed ? 'flex-row-reverse' : ''}`}
       style={rootStyle}
       onMouseEnter={() => {

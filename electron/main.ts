@@ -31,8 +31,9 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Linux transparency support
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
-  // Disable hardware acceleration on Linux to prevent black screen issues on Wayland/X11 compositors
-  app.disableHardwareAcceleration();
+  // Modern Wayland compatibility flags to prevent black screens while keeping GPU acceleration
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
 }
 
 // Removed AutomationControlled and enable-automation flags as they are often detected by Google
@@ -112,10 +113,10 @@ function focusClick(edge: 'left' | 'right') {
 interface WindowState {
   win: BrowserWindow;
   currentSnapSide: 'left' | 'right';
-  isPinned: boolean;
   isAutoSnap: boolean;
   isWindowOpen: boolean;
   isMoving: boolean; // Tracking drag state to prevent blur loops on Linux
+  blurTimeout?: NodeJS.Timeout; // Debounce blur events on Linux
 }
 
 const windowManager = new Map<number, WindowState>();
@@ -495,6 +496,13 @@ function createWindow(isSecondary = false) {
          }
       }
     }
+    
+    // If a moved event fires, the user is actively dragging. Cancel any pending blur retractions.
+    if (state.blurTimeout) {
+      clearTimeout(state.blurTimeout);
+      state.blurTimeout = undefined;
+    }
+
     // Delay clearing isMoving to ensure blur events triggered by the move are processed/ignored
     setTimeout(() => {
       state.isMoving = false;
@@ -503,12 +511,21 @@ function createWindow(isSecondary = false) {
 
   win.on('blur', () => {
     if (win.isDestroyed()) return;
-    // On Linux, moving/dragging the window often triggers a blur event.
-    // We suppress retraction if we are in the middle of a move.
-    if (process.platform === 'linux' && state.isMoving) {
-      return;
+    
+    // On Linux, dragging the window steals focus and fires a false blur.
+    // Instead of retracting instantly, we debounce it.
+    if (process.platform === 'linux') {
+      if (state.isMoving) return;
+      
+      if (state.blurTimeout) clearTimeout(state.blurTimeout);
+      state.blurTimeout = setTimeout(() => {
+        if (!win.isDestroyed() && !state.isMoving) {
+          retractWindow(state);
+        }
+      }, 300);
+    } else {
+      retractWindow(state);
     }
-    retractWindow(state);
   });
 
   win.on('focus', () => {
