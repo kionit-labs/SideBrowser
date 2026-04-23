@@ -113,6 +113,7 @@ function focusClick(edge: 'left' | 'right') {
 interface WindowState {
   win: BrowserWindow;
   currentSnapSide: 'left' | 'right';
+  isPinned: boolean;
   isAutoSnap: boolean;
   isWindowOpen: boolean;
   isMoving: boolean; // Tracking drag state to prevent blur loops on Linux
