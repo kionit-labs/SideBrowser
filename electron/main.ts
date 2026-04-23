@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut } from 'electron';
-import type { WebContents } from 'electron';
+import type { WebContents, Session } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
@@ -27,6 +27,7 @@ process.on('uncaughtException', (error) => {
 
 // Optimization Switches for High-Performance Media & Stability
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 
 // Removed AutomationControlled and enable-automation flags as they are often detected by Google
 
@@ -57,9 +58,20 @@ let passwordsStore: any;
 let blocker: ElectronBlocker | null = null;
 async function setupAdblocker() {
   try {
-    // Use pre-baked filters for faster startup and more reliable YouTube blocking
-    blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
-    console.log('Adblocker initialized with pre-built filters');
+    const enginePath = path.join(app.getPath('userData'), 'adblocker-engine.bin');
+    blocker = await ElectronBlocker.fromLists(fetch, [
+      'https://easylist.to/easylist/easylist.txt',
+      'https://easylist.to/easylist/easyprivacy.txt',
+      'https://secure.fanboy.co.nz/fanboy-cookiemonster.txt',
+      'https://secure.fanboy.co.nz/fanboy-annoyance.txt'
+    ], {
+      enableCompression: true
+    }, {
+      path: enginePath,
+      read: async (...args) => fs.readFileSync(...args),
+      write: async (...args) => fs.writeFileSync(...args)
+    });
+    console.log('Adblocker initialized with LATEST dynamic filters from the web');
   } catch (error) {
     console.error('Failed to initialize adblocker:', error);
   }
@@ -617,6 +629,109 @@ app.whenReady().then(async () => {
 
   await setupAdblocker();
   
+  // Get the engine's real User-Agent and strip Electron/SideBrowser strings.
+  // This ensures that the User-Agent version ALWAYS matches the native Client Hints (sec-ch-ua).
+  // This is the definitive fix for Gemini "Error 13" bot detection.
+  const nativeUA = session.defaultSession.getUserAgent();
+  const cleanNativeUA = nativeUA.replace(/\s*(SideBrowser|Electron)\/[\d.]+/g, '').trim();
+  const cleanLoginUA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36`;
+  
+  app.userAgentFallback = cleanNativeUA;
+
+  const applySessionHacks = (ses: Session, enableAdblock: boolean) => {
+    ses.setUserAgent(cleanNativeUA, 'en-US,en;q=0.9');
+    // Slide Browser Hack: Google Login Security Fix
+    // We use a FILTER so these listeners NEVER execute for Gemini or ChatGPT, ensuring 100% native performance.
+    ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*'] }, (details: any, callback: any) => {
+      const { requestHeaders } = details;
+      requestHeaders['User-Agent'] = 'Chrome ' + cleanLoginUA;
+      callback({ requestHeaders });
+    });
+
+    ses.webRequest.onHeadersReceived({ urls: ['https://accounts.google.com/*'] }, (details: any, callback: any) => {
+      const { responseHeaders } = details;
+      const contentType = responseHeaders?.['content-type']?.[0] || '';
+      if (contentType.includes('text/html')) {
+          const headersToStrip = [
+              'Content-Security-Policy',
+              'content-security-policy',
+              'X-Frame-Options',
+              'x-frame-options',
+              'cross-origin-resource-policy',
+              'Cross-Origin-Resource-Policy'
+          ];
+          headersToStrip.forEach(h => {
+             if (responseHeaders) delete responseHeaders[h];
+          });
+      }
+      callback({ responseHeaders });
+    });
+
+  if (enableAdblock && store.get('adblockEnabled') && blocker) {
+    try {
+      // Re-enabled Ghostery preload script for 100/100 score. 
+      // Whitelisting in onBeforeRequest should now prevent the previous crashes.
+
+      // 2. Monkey-patch onBeforeRequest to whitelist Gemini and ChatGPT
+      const originalOnBeforeRequest = ses.webRequest.onBeforeRequest.bind(ses.webRequest);
+      (ses.webRequest as any).onBeforeRequest = (filter: any, listener?: any) => {
+        if (typeof filter === 'function') {
+          listener = filter;
+          filter = null;
+        }
+        const wrappedListener = (details: any, callback: any) => {
+          const url = details.url || '';
+          const isAiDomain = url.includes('chatgpt.com') || 
+                             url.includes('chat.openai.com') || 
+                             url.includes('google.com') || 
+                             url.includes('googleapis.com') ||
+                             url.includes('gstatic.com') ||
+                             url.includes('googleusercontent.com');
+
+          // Bypass for AI and Service Workers (crucial for Gemini streaming)
+          if (isAiDomain || details.resourceType === 'serviceWorker') {
+            return callback({ cancel: false });
+          }
+          return listener(details, callback);
+        };
+        originalOnBeforeRequest(filter || { urls: ['<all_urls>'] }, wrappedListener);
+      };
+
+      // 3. Monkey-patch onHeadersReceived to bypass Ghostery for AI domains (CRITICAL for Gemini guest mode)
+      const originalOnHeadersReceived = ses.webRequest.onHeadersReceived.bind(ses.webRequest);
+      (ses.webRequest as any).onHeadersReceived = (filter: any, listener?: any) => {
+        if (typeof filter === 'function') {
+          listener = filter;
+          filter = null;
+        }
+        const wrappedListener = (details: any, callback: any) => {
+          const url = details.url || '';
+          const isAiDomain = url.includes('chatgpt.com') || 
+                             url.includes('chat.openai.com') || 
+                             url.includes('google.com') || 
+                             url.includes('googleapis.com') || 
+                             url.includes('gstatic.com') ||
+                             url.includes('googleusercontent.com');
+
+          if (isAiDomain || details.resourceType === 'serviceWorker') {
+            return callback({ responseHeaders: details.responseHeaders });
+          }
+          return listener(details, callback);
+        };
+        originalOnHeadersReceived(filter || { urls: ['<all_urls>'] }, wrappedListener);
+      };
+
+      blocker.enableBlockingInSession(ses);
+    } catch (e) {
+      console.warn('Adblocker: Failed to enable blocking in session:', e);
+    }
+  }
+};
+
+// Apply hacks
+applySessionHacks(session.defaultSession, false);
+applySessionHacks(session.fromPartition('persist:sidebrowser'), true);
+
   try {
     const iconPath = path.join(process.env.VITE_PUBLIC || '', 'tray-icon.png');
     const trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
@@ -659,95 +774,7 @@ app.whenReady().then(async () => {
     });
   }
 
-  // ═══════════════════════════════════════════════════
-  // Attempt 4: The Slide Browser Secret Session Configuration
-  // ═══════════════════════════════════════════════════
-  const ses = session.defaultSession;
-  const targetChromeVersion = '134.0.0.0';
-  const cleanUA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${targetChromeVersion} Safari/537.36`;
-  
-  ses.setUserAgent(cleanUA);
 
-  // Strip Electron/App tokens and apply Google-specific UA hacks
-  ses.webRequest.onBeforeSendHeaders((details, callback) => {
-    const { requestHeaders } = details;
-    let ua = requestHeaders['User-Agent'] || cleanUA;
-    
-    // Slide Browser Hack: Replace ENTIRELY if it contains Electron
-    if (ua.includes('Electron')) {
-      ua = cleanUA;
-    }
-
-    // Slide Browser Hack: Prepend "Chrome " for Google Login
-    if (details.url.includes('https://accounts.google.com/')) {
-       ua = 'Chrome ' + ua;
-    }
-    
-    requestHeaders['User-Agent'] = ua;
-
-    // Clean Client Hints (sec-ch-ua)
-    if (requestHeaders['sec-ch-ua']) {
-      requestHeaders['sec-ch-ua'] = `"Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"`;
-    }
-    if (requestHeaders['sec-ch-ua-platform']) {
-      requestHeaders['sec-ch-ua-platform'] = '"Windows"';
-    }
-
-    // Slide Browser Hack: Delete Referer for certain redirects if needed
-    if (details.url.includes('googlepopupredirect')) {
-        delete requestHeaders['Referer'];
-    }
-
-    callback({ requestHeaders });
-  });
-
-  // Slide Browser Hack: Strip security headers from HTML pages to prevent environment detection checks
-  ses.webRequest.onHeadersReceived((details, callback) => {
-    const { responseHeaders } = details;
-    const contentType = responseHeaders?.['content-type']?.[0] || '';
-    
-    if (contentType.includes('text/html')) {
-        const headersToStrip = [
-            'Content-Security-Policy',
-            'content-security-policy',
-            'X-Frame-Options',
-            'x-frame-options',
-            'cross-origin-resource-policy',
-            'Cross-Origin-Resource-Policy'
-        ];
-        headersToStrip.forEach(h => {
-           if (responseHeaders) delete responseHeaders[h];
-        });
-    }
-
-    callback({ responseHeaders });
-  });
-
-  if (typeof (ses as any).registerPreloadScript !== 'function' && typeof (ses as any).setPreloads === 'function') {
-    (ses as any).registerPreloadScript = (config: any) => {
-      try {
-        const filePath = typeof config === 'string' ? config : (config.filePath || config.scriptPath);
-        if (!filePath) return;
-        
-        const current = (ses as any).getPreloads() || [];
-        if (!current.includes(filePath)) {
-          (ses as any).setPreloads([...current, filePath]);
-        }
-      } catch (e) {
-        console.error('Failed to polyfill registerPreloadScript:', e);
-      }
-    };
-  }
-
-  if (store.get('adblockEnabled')) {
-    if (blocker) {
-      try {
-        blocker.enableBlockingInSession(ses);
-      } catch (e) {
-        console.warn('Adblocker: Failed to enable blocking in session:', e);
-      }
-    }
-  }
 });
 
 // ═══════════════════════════════════════════════════
@@ -915,7 +942,7 @@ ipcMain.on('set-store-value', (_event, key, value) => {
       registerGlobalShortcuts();
     }
     if (key === 'adblockEnabled') {
-      const ses = session.defaultSession;
+      const ses = session.fromPartition('persist:sidebrowser');
       if (value && blocker) {
         blocker.enableBlockingInSession(ses);
       } else {

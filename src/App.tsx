@@ -82,7 +82,7 @@ export default function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [contextMenuTabId, setContextMenuTabId] = useState<string | null>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [menuPos, setMenuPos] = useState<{ top: number; right?: number; left?: number }>({ top: 0, right: 0 });
 
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [isAutoEdgeSnapping, setIsAutoEdgeSnapping] = useState(true);
@@ -507,11 +507,14 @@ export default function App() {
                   ref={(el) => { browserRefs.current[tab.id] = el; }}
                   url={tab.url} 
                   isActive={activeTabId === tab.id && view === 'browser'} 
-                  isAddressBarTriggered={isHoveringAddressBarEdge}
-                  onTranslateAction={(active) => setIsTranslateUIOpen(active)}
+                  isAddressBarTriggered={isHoveringAddressBarEdge && activeTabId === tab.id && view === 'browser'}
+                  onTranslateAction={(active) => {
+                    setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, isTranslated: active } : t));
+                  }}
                   onStateChange={(state) => {
                     setTabs(prev => prev.map(t => t.id === tab.id ? { ...t, url: state.url, title: state.title, domain: state.domain || t.domain } : t));
-                  }} 
+                  }}
+                  isReversed={isDynamicReversed}
                 />
              </div>
           ))}
@@ -579,7 +582,11 @@ export default function App() {
                      e.stopPropagation();
                      setView('browser');
                      const rect = e.currentTarget.getBoundingClientRect();
-                     setMenuPos({ top: rect.top + rect.height / 2, right: window.innerWidth - rect.left + 4 });
+                     if (isDynamicReversed) {
+                       setMenuPos({ top: rect.top + rect.height / 2, left: rect.right + 4 });
+                     } else {
+                       setMenuPos({ top: rect.top + rect.height / 2, right: window.innerWidth - rect.left + 4 });
+                     }
                      
                      // Simple toggle: if not active, set active. If active, toggle menu.
                      if (activeTabId !== tab.id || view !== 'browser') {
@@ -696,12 +703,13 @@ export default function App() {
       {/* Tab Context Menu Overlay - Root Level for Z-Index */}
       {contextMenuTabId && (
         <motion.div 
-          initial={{ opacity: 0, x: 10 }}
+          initial={{ opacity: 0, x: isDynamicReversed ? -10 : 10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="fixed bg-[var(--theme-sidebar)] rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] border border-white/10 p-4 w-[340px] max-w-[340px] flex flex-col gap-4 z-[10005] origin-right pointer-events-auto overflow-hidden"
+          className={`fixed bg-[var(--theme-sidebar)] rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] border border-white/10 p-4 w-[340px] max-w-[340px] flex flex-col gap-4 z-[10005] pointer-events-auto overflow-hidden ${isDynamicReversed ? 'origin-left' : 'origin-right'}`}
           style={{ 
             top: menuPos.top, 
-            right: menuPos.right,
+            ...(menuPos.right !== undefined ? { right: menuPos.right } : {}),
+            ...(menuPos.left !== undefined ? { left: menuPos.left } : {}),
             transform: 'translateY(-50%)' 
           }}
           onClick={(e) => e.stopPropagation()}

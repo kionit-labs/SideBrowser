@@ -24,9 +24,10 @@ interface BrowserProps {
   isAddressBarTriggered: boolean;
   onTranslateAction?: (active: boolean) => void;
   onStateChange: (state: { url: string; title: string; domain?: string; canGoBack: boolean; canGoForward: boolean }) => void;
+  isReversed?: boolean;
 }
 
-const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onTranslateAction, onStateChange }, ref) => {
+const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddressBarTriggered, onTranslateAction, onStateChange, isReversed }, ref) => {
   const webviewRef = useRef<any>(null);
   const [preloadPath, setPreloadPath] = useState('');
   const [currentUrl, setCurrentUrl] = useState(url);
@@ -265,10 +266,14 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
   if (!preloadPath) return null;
 
   // Absolute Transparency for Pixel Perfection:
-  const clipPathValue = `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
+  const clipPathValue = isReversed
+    ? `inset(0 0 0 0 round 0 var(--app-radius) var(--app-radius) 0)`
+    : `inset(0 0 0 0 round var(--app-radius) 0 0 var(--app-radius))`;
 
   // Show bar if triggered by App (hover edge), OR if input is focused
   const showAddressBar = addressBarPos !== 'Hidden' && (isAddressBarTriggered || isInputFocused);
+
+  const partitionName = "persist:sidebrowser";
 
   return (
     <div 
@@ -285,6 +290,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
         }}
         src={initialUrl}
         preload={preloadPath}
+        partition={partitionName}
         allowpopups
         useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         className="w-full h-full overflow-hidden"
@@ -292,7 +298,7 @@ const Browser = forwardRef<BrowserRef, BrowserProps>(({ url, isActive, isAddress
           backgroundColor: 'transparent',
           clipPath: clipPathValue,
           WebkitClipPath: clipPathValue,
-          borderRadius: 'var(--app-radius) 0 0 var(--app-radius)'
+          borderRadius: isReversed ? '0 var(--app-radius) var(--app-radius) 0' : 'var(--app-radius) 0 0 var(--app-radius)'
         } as any}
       />
 
