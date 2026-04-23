@@ -372,10 +372,24 @@ function retractWindow(state: WindowState) {
   }
 
   state.currentSnapSide = side;
-  win.setAlwaysOnTop(true, 'floating');
-  win.setIgnoreMouseEvents(true, { forward: true });
-  win.webContents.send('window-blur', side);
   state.isWindowOpen = false;
+
+  win.setAlwaysOnTop(true, 'floating');
+  
+  if (process.platform === 'linux') {
+    // Delay setting ignoreMouseEvents on Linux to allow the React animation to finish.
+    // Making a Wayland window click-through while animating causes severe visual bugs.
+    setTimeout(() => {
+      if (!win.isDestroyed() && !state.isWindowOpen) {
+        win.setIgnoreMouseEvents(true, { forward: true });
+      }
+    }, 400); // 400ms is slightly longer than the React spring animation
+  } else {
+    // Windows works perfectly with instant click-through
+    win.setIgnoreMouseEvents(true, { forward: true });
+  }
+
+  win.webContents.send('window-blur', side);
 
   startEdgeCheck();
 }
