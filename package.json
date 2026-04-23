@@ -1,6 +1,6 @@
 {
   "name": "side-browser",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "A sleek, slide-out side browser panel for Windows. Built with Electron, React, and TypeScript.",
   "productName": "Side Browser",
   "license": "GPL-3.0-or-later",
