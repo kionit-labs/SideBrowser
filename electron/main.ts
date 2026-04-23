@@ -28,14 +28,6 @@ process.on('uncaughtException', (error) => {
 // Optimization Switches for High-Performance Media & Stability
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-// Linux transparency support
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('enable-transparent-visuals');
-  // Modern Wayland compatibility flags to prevent black screens while keeping GPU acceleration
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
-  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
-}
-
 // Removed AutomationControlled and enable-automation flags as they are often detected by Google
 
 // Single Instance Lock
@@ -116,8 +108,6 @@ interface WindowState {
   isPinned: boolean;
   isAutoSnap: boolean;
   isWindowOpen: boolean;
-  isMoving: boolean; // Tracking drag state to prevent blur loops on Linux
-  blurTimeout?: NodeJS.Timeout; // Debounce blur events on Linux
 }
 
 const windowManager = new Map<number, WindowState>();
@@ -375,19 +365,7 @@ function retractWindow(state: WindowState) {
   state.isWindowOpen = false;
 
   win.setAlwaysOnTop(true, 'floating');
-  
-  if (process.platform === 'linux') {
-    // Delay setting ignoreMouseEvents on Linux to allow the React animation to finish.
-    // Making a Wayland window click-through while animating causes severe visual bugs.
-    setTimeout(() => {
-      if (!win.isDestroyed() && !state.isWindowOpen) {
-        win.setIgnoreMouseEvents(true, { forward: true });
-      }
-    }, 400); // 400ms is slightly longer than the React spring animation
-  } else {
-    // Windows works perfectly with instant click-through
-    win.setIgnoreMouseEvents(true, { forward: true });
-  }
+  win.setIgnoreMouseEvents(true, { forward: true });
 
   win.webContents.send('window-blur', side);
 
@@ -434,8 +412,7 @@ function createWindow(isSecondary = false) {
     currentSnapSide,
     isWindowOpen: true, // Window starts shown
     isPinned: false,
-    isAutoSnap: true,
-    isMoving: false
+    isAutoSnap: true
   };
 
   windowManager.set(win.id, state);
@@ -470,10 +447,6 @@ function createWindow(isSecondary = false) {
     : store.get('window-y') ?? (workArea.y + Math.floor((workArea.height - 600) / 2));
 
   win.setBounds({ x: initialX, y: initialY, width: initialWidth, height: 600 });
-
-  win.on('will-move', () => {
-    state.isMoving = true;
-  });
 
   win.on('moved', () => {
     if (win.isDestroyed()) return;
@@ -511,36 +484,11 @@ function createWindow(isSecondary = false) {
          }
       }
     }
-    
-    // If a moved event fires, the user is actively dragging. Cancel any pending blur retractions.
-    if (state.blurTimeout) {
-      clearTimeout(state.blurTimeout);
-      state.blurTimeout = undefined;
-    }
-
-    // Delay clearing isMoving to ensure blur events triggered by the move are processed/ignored
-    setTimeout(() => {
-      state.isMoving = false;
-    }, 100);
   });
 
   win.on('blur', () => {
     if (win.isDestroyed()) return;
-    
-    // On Linux, dragging the window steals focus and fires a false blur.
-    // Instead of retracting instantly, we debounce it.
-    if (process.platform === 'linux') {
-      if (state.isMoving) return;
-      
-      if (state.blurTimeout) clearTimeout(state.blurTimeout);
-      state.blurTimeout = setTimeout(() => {
-        if (!win.isDestroyed() && !state.isMoving) {
-          retractWindow(state);
-        }
-      }, 300);
-    } else {
-      retractWindow(state);
-    }
+    retractWindow(state);
   });
 
   win.on('focus', () => {

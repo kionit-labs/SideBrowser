@@ -13,11 +13,9 @@ env:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     
+
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
@@ -26,12 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install Linux Dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libx11-dev libxext-dev libpng-dev libxtst-dev
 
       - name: Install Dependencies
         run: npm install --legacy-peer-deps

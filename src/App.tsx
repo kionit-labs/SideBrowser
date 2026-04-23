@@ -75,7 +75,6 @@ export default function App() {
   const { settings, updateSetting, isLoading } = useSettings();
   const { t } = useTranslation();
   const [slideSide, setSlideSide] = useState(settings.defaultSnapSide || 'right');
-  const isLinux = navigator.userAgent.toLowerCase().includes('linux');
   
   const isSecondary = new URLSearchParams(window.location.search).get('isSecondary') === 'true';
   
@@ -144,15 +143,13 @@ export default function App() {
   useEffect(() => {
     if ((window as any).electronAPI) {
       const blurHandler = (side: string) => {
-        // Increase delay on Linux to filter out transient focus losses during drag/OS ops
-        const delay = isLinux ? 150 : 50;
-        
+        // Small delay to ignore "flicker" blurs during tab closing/renders
         setTimeout(() => {
           if (document.hasFocus()) return; // If we still have focus, ignore the blur
           setSlideSide(side);
           setIsBlurred(true);
           setContextMenuTabId(null);
-        }, delay);
+        }, 50);
       };
       
       const focusHandler = () => {
