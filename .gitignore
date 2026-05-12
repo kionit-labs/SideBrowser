@@ -7,6 +7,9 @@ dist-electron
 release
 *.local
 *.7z
+*.zip
+*.bin
+scratch_*
 
 # Logs
 logs
