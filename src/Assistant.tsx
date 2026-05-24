@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, User, Paperclip, Scissors, Trash2, 
-  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp
+  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, Volume2, RotateCcw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -182,7 +182,7 @@ export default function Assistant() {
               key={msg.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`flex gap-4 max-w-[90%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
+              className={`flex gap-4 max-w-[90%] group ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-[var(--theme-active)] text-white' : 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg'}`}>
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
@@ -236,6 +236,22 @@ export default function Assistant() {
                     </div>
                   )}
                 </div>
+                
+                {msg.role === 'assistant' && (
+                  <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Copy">
+                        <Copy size={13} />
+                     </button>
+                     {settings.aiTtsEnabled && (
+                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Read Aloud">
+                          <Volume2 size={14} />
+                       </button>
+                     )}
+                     <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Regenerate">
+                        <RotateCcw size={13} />
+                     </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -302,13 +318,21 @@ export default function Assistant() {
                 </AnimatePresence>
               </div>
               
-              <button 
-                onClick={handleSend}
-                disabled={!input.trim()}
-                className="w-[30px] h-[30px] rounded-full bg-[var(--theme-text)] text-[var(--theme-content-bg)] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 shadow-sm"
-              >
-                <ArrowUp size={18} strokeWidth={2.5} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button 
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                  title="Voice Input"
+                >
+                  <Mic size={17} />
+                </button>
+                <button 
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  className="w-[30px] h-[30px] rounded-full bg-[var(--theme-text)] text-[var(--theme-content-bg)] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 shadow-sm"
+                >
+                  <ArrowUp size={18} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
           </div>
           <div className="text-center mt-2 text-[10px] text-[var(--theme-text)] opacity-40">

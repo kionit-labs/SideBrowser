@@ -129,7 +129,11 @@ const translations = {
     'ai.safety.level1': 'Confirm Every Action',
     'ai.safety.level2': 'Full Auto-Pilot (Dangerous)',
     'ai.persist': 'Save Chat History',
-    'ai.persist.sub': 'Keep your chat history saved persistently on this machine.'
+    'ai.persist.sub': 'Keep your chat history saved persistently on this machine.',
+    'ai.enable': 'Enable AI Assistant',
+    'ai.enable.sub': 'Show the AI Assistant button in the main sidebar.',
+    'ai.tts': 'Text-to-Speech (TTS)',
+    'ai.tts.sub': 'Read AI responses aloud and show the speaker button.'
   },
   'Türkçe': {
     'settings.title': 'Ayarlar',
@@ -258,7 +262,11 @@ const translations = {
     'ai.safety.level1': 'Her Eylemi Onayla',
     'ai.safety.level2': 'Tam Otomatik Pilot (Tehlikeli)',
     'ai.persist': 'Sohbet Geçmişini Kaydet',
-    'ai.persist.sub': 'Sohbet geçmişinizi bu cihazda kalıcı olarak saklayın.'
+    'ai.persist.sub': 'Sohbet geçmişinizi bu cihazda kalıcı olarak saklayın.',
+    'ai.enable': 'Yapay Zeka Asistanını Etkinleştir',
+    'ai.enable.sub': 'Yapay zeka asistanı butonunu ana yan menüde göster.',
+    'ai.tts': 'Metin Okuma (TTS)',
+    'ai.tts.sub': 'Yapay zeka yanıtlarını sesli oku ve hoparlör butonunu göster.'
   },
   'Deutsch': {
     'settings.title': 'Einstellungen',
@@ -387,7 +395,11 @@ const translations = {
     'ai.safety.level1': 'Jede Aktion bestätigen',
     'ai.safety.level2': 'Vollständiger Auto-Pilot (Gefährlich)',
     'ai.persist': 'Chatverlauf speichern',
-    'ai.persist.sub': 'Speichern Sie Ihren Chatverlauf dauerhaft auf diesem Gerät.'
+    'ai.persist.sub': 'Speichern Sie Ihren Chatverlauf dauerhaft auf diesem Gerät.',
+    'ai.enable': 'KI-Assistent aktivieren',
+    'ai.enable.sub': 'KI-Assistent-Taste in der Hauptseitenleiste anzeigen.',
+    'ai.tts': 'Text-to-Speech (TTS)',
+    'ai.tts.sub': 'KI-Antworten vorlesen und Lautsprechertaste anzeigen.'
   }
 } as const;
 
@@ -445,6 +457,8 @@ export interface SettingsState {
   aiWorkspacePath: string;
   aiRobotSafetyLevel: number;
   aiPersistHistory: boolean;
+  aiEnabled: boolean;
+  aiTtsEnabled: boolean;
 }
 
 const defaultSettings: SettingsState = {
@@ -480,6 +494,8 @@ const defaultSettings: SettingsState = {
   aiWorkspacePath: '',
   aiRobotSafetyLevel: 1,
   aiPersistHistory: true,
+  aiEnabled: true,
+  aiTtsEnabled: false,
 };
 
 interface SettingsContextType {

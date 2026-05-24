@@ -515,6 +515,13 @@ export default function Settings() {
 
             {activeTab === 'AI' && (
               <div className="flex flex-col animate-in fade-in duration-300">
+                <ToggleItem 
+                  label={t('ai.enable')} 
+                  subtitle={t('ai.enable.sub')} 
+                  enabled={settings.aiEnabled} 
+                  onToggle={() => updateSetting('aiEnabled', !settings.aiEnabled)} 
+                />
+
                 <SelectItem 
                   label={t('ai.provider')} 
                   options={['Ollama', 'LM Studio', 'OpenAI', 'Anthropic', 'Gemini', 'Custom']} 
@@ -605,6 +612,13 @@ export default function Settings() {
                   subtitle={t('ai.persist.sub')} 
                   enabled={settings.aiPersistHistory} 
                   onToggle={() => updateSetting('aiPersistHistory', !settings.aiPersistHistory)} 
+                />
+
+                <ToggleItem 
+                  label={t('ai.tts')} 
+                  subtitle={t('ai.tts.sub')} 
+                  enabled={settings.aiTtsEnabled} 
+                  onToggle={() => updateSetting('aiTtsEnabled', !settings.aiTtsEnabled)} 
                 />
               </div>
             )}

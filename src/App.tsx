@@ -615,18 +615,20 @@ export default function App() {
           <div className="w-full shrink-0 flex flex-col items-center mt-2 px-1 gap-1.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
             
             {/* AI Assistant Icon */}
-            <div className="w-full px-2 flex justify-center mb-1">
-              <button 
-                onClick={() => {
-                  setView('assistant');
-                  setContextMenuTabId(null);
-                }} 
-                title="AI Assistant"
-                className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-200 ${view === 'assistant' ? 'bg-[var(--theme-active)] text-white shadow-md scale-[1.02]' : 'hover:bg-black/10 dark:hover:bg-white/10 text-[var(--theme-text)] opacity-70 hover:opacity-100'}`}
-              >
-                <Sparkles size={22} strokeWidth={1.5} />
-              </button>
-            </div>
+            {settings.aiEnabled && (
+              <div className="w-full px-2 flex justify-center mb-1">
+                <button 
+                  onClick={() => {
+                    setView('assistant');
+                    setContextMenuTabId(null);
+                  }} 
+                  title="AI Assistant"
+                  className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-200 ${view === 'assistant' ? 'bg-[var(--theme-active)] text-white shadow-md scale-[1.02]' : 'hover:bg-black/10 dark:hover:bg-white/10 text-[var(--theme-text)] opacity-70 hover:opacity-100'}`}
+                >
+                  <Sparkles size={22} strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-1 w-full text-[var(--theme-text)] opacity-40">
               {isSecondary && (
