@@ -764,6 +764,15 @@ applySessionHacks(session.fromPartition('persist:sidebrowser'), true);
     console.warn("Failed to create Tray icon:", err);
   }
 
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    // Automatically allow media (microphone/camera) for the app
+    if (permission === 'media') {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
   createWindow();
   startEdgeCheck();
   registerGlobalShortcuts();
@@ -1000,7 +1009,11 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        }
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'LM Studio' || provider === 'OpenAI' || provider === 'Custom') {
-       const openai = new OpenAI({ baseURL: endpoint, apiKey: apiKey || 'not-needed' });
+       let baseURL = endpoint;
+       if (baseURL && !baseURL.endsWith('/v1') && !baseURL.includes('openai.com')) {
+         baseURL = baseURL.replace(/\/$/, '') + '/v1';
+       }
+       const openai = new OpenAI({ baseURL: baseURL, apiKey: apiKey || 'not-needed' });
        const stream = await openai.chat.completions.create({
           model: model || 'local-model',
           messages: [{ role: 'user', content: prompt }],
@@ -1045,7 +1058,10 @@ ipcMain.handle('ai:capture-screen-region', async (_event) => {
         alwaysOnTop: true,
         skipTaskbar: true,
         fullscreen: true,
-        webPreferences: { nodeIntegration: true, contextIsolation: false }
+        webPreferences: { 
+          nodeIntegration: true, 
+          contextIsolation: false 
+        }
       });
       
       const html = `
@@ -1059,7 +1075,7 @@ ipcMain.handle('ai:capture-screen-region', async (_event) => {
             </style>
           </head>
           <body>
-            <img id="bg" src="${screenImage}" draggable="false" />
+            <img id="bg" draggable="false" />
             <div id="selection"></div>
             <script>
               const { ipcRenderer } = require('electron');
@@ -1067,6 +1083,10 @@ ipcMain.handle('ai:capture-screen-region', async (_event) => {
               const selection = document.getElementById('selection');
               const bg = document.getElementById('bg');
               
+              ipcRenderer.on('capture-image-data', (event, imageSrc) => {
+                bg.src = imageSrc;
+              });
+
               document.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 bg.style.display = 'none'; // We use box-shadow trick for the unselected area now
@@ -1115,7 +1135,14 @@ ipcMain.handle('ai:capture-screen-region', async (_event) => {
         </html>
       `;
       
-      await captureWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      const tempPath = path.join(app.getPath('temp'), 'sidebrowser-capture.html');
+      fs.writeFileSync(tempPath, html);
+      
+      captureWin.webContents.once('did-finish-load', () => {
+        captureWin.webContents.send('capture-image-data', screenImage);
+      });
+      
+      await captureWin.loadFile(tempPath);
       
       ipcMain.once('capture-done', (_e, cropRect) => {
          if (!cropRect) {
