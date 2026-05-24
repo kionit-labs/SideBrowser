@@ -29,6 +29,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   aiQueryLLM: (prompt: string, threadId: string, imageBase64?: string) => ipcRenderer.invoke('ai:query-llm', prompt, threadId, imageBase64),
+  aiQueryLLMStream: (prompt: string, threadId: string, provider: string, model: string, endpoint: string, apiKey: string, imageBase64?: string) => {
+    ipcRenderer.send('ai:query-llm-stream', { prompt, threadId, provider, model, endpoint, apiKey, imageBase64 });
+  },
+  onAiStreamChunk: (callback: (data: { threadId: string, chunk: string }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('ai:query-llm-chunk', handler);
+    return () => ipcRenderer.off('ai:query-llm-chunk', handler);
+  },
+  onAiStreamDone: (callback: (data: { threadId: string }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('ai:query-llm-done', handler);
+    return () => ipcRenderer.off('ai:query-llm-done', handler);
+  },
+  onAiStreamError: (callback: (data: { threadId: string, error: string }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('ai:query-llm-error', handler);
+    return () => ipcRenderer.off('ai:query-llm-error', handler);
+  },
   aiCaptureScreenRegion: () => ipcRenderer.invoke('ai:capture-screen-region'),
   aiFileOperation: (action: string, targetPath: string, content?: string) => ipcRenderer.invoke('ai:file-operation', action, targetPath, content),
   aiExecuteAutomation: (command: any) => ipcRenderer.invoke('ai:execute-automation', command),

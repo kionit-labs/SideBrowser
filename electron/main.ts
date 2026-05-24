@@ -1,9 +1,12 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog, desktopCapturer } from 'electron';
 import type { WebContents, Session } from 'electron';
+import { Store } from 'electron-datastore';
+import { Ollama } from 'ollama';
+import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import path from 'path';
 import fs from 'fs';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
-import { Store } from 'electron-datastore';
 import { autoUpdater } from 'electron-updater';
 // Identity Lockdown at Process Start
 app.name = 'SideBrowser';
@@ -983,9 +986,160 @@ ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, 
   return `Echo from backend: ${prompt}`;
 });
 
+ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey }) => {
+  try {
+    if (provider === 'Ollama') {
+       const ollama = new Ollama({ host: endpoint || 'http://localhost:11434' });
+       const response = await ollama.chat({
+          model: model || 'llama3',
+          messages: [{ role: 'user', content: prompt }],
+          stream: true,
+       });
+       for await (const part of response) {
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.message.content });
+       }
+       event.reply('ai:query-llm-done', { threadId });
+    } else if (provider === 'LM Studio' || provider === 'OpenAI' || provider === 'Custom') {
+       const openai = new OpenAI({ baseURL: endpoint, apiKey: apiKey || 'not-needed' });
+       const stream = await openai.chat.completions.create({
+          model: model || 'local-model',
+          messages: [{ role: 'user', content: prompt }],
+          stream: true,
+       });
+       for await (const part of stream) {
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '' });
+       }
+       event.reply('ai:query-llm-done', { threadId });
+    } else if (provider === 'Gemini') {
+       const genAI = new GoogleGenerativeAI(apiKey);
+       const genModel = genAI.getGenerativeModel({ model: model || 'gemini-1.5-flash' });
+       const result = await genModel.generateContentStream(prompt);
+       for await (const chunk of result.stream) {
+         event.reply('ai:query-llm-chunk', { threadId, chunk: chunk.text() });
+       }
+       event.reply('ai:query-llm-done', { threadId });
+    } else {
+       event.reply('ai:query-llm-error', { threadId, error: 'Unsupported Provider' });
+    }
+  } catch (err: any) {
+    event.reply('ai:query-llm-error', { threadId, error: err.message });
+  }
+});
+
 ipcMain.handle('ai:capture-screen-region', async (_event) => {
-  console.log('Simulating screen capture');
-  return null;
+  return new Promise(async (resolve) => {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.size;
+      const { scaleFactor } = primaryDisplay; // For high DPI displays
+      
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: width * scaleFactor, height: height * scaleFactor } });
+      const screenImage = sources[0].thumbnail.toDataURL();
+      
+      const captureWin = new BrowserWindow({
+        x: primaryDisplay.bounds.x,
+        y: primaryDisplay.bounds.y,
+        width, height,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        fullscreen: true,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+      });
+      
+      const html = `
+        <html>
+          <head>
+            <style>
+              body { margin: 0; overflow: hidden; cursor: crosshair; user-select: none; }
+              #bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: fill; }
+              #overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); }
+              #selection { position: absolute; border: 1.5px solid white; background: rgba(255, 255, 255, 0.1); box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); display: none; }
+            </style>
+          </head>
+          <body>
+            <img id="bg" src="${screenImage}" draggable="false" />
+            <div id="selection"></div>
+            <script>
+              const { ipcRenderer } = require('electron');
+              let startX, startY, isDragging = false;
+              const selection = document.getElementById('selection');
+              const bg = document.getElementById('bg');
+              
+              document.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                bg.style.display = 'none'; // We use box-shadow trick for the unselected area now
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                selection.style.left = startX + 'px';
+                selection.style.top = startY + 'px';
+                selection.style.width = '0px';
+                selection.style.height = '0px';
+                selection.style.display = 'block';
+              });
+              
+              document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const width = Math.abs(e.clientX - startX);
+                const height = Math.abs(e.clientY - startY);
+                const left = Math.min(e.clientX, startX);
+                const top = Math.min(e.clientY, startY);
+                selection.style.left = left + 'px';
+                selection.style.top = top + 'px';
+                selection.style.width = width + 'px';
+                selection.style.height = height + 'px';
+              });
+              
+              document.addEventListener('mouseup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const width = Math.abs(e.clientX - startX);
+                const height = Math.abs(e.clientY - startY);
+                const left = Math.min(e.clientX, startX);
+                const top = Math.min(e.clientY, startY);
+                
+                if (width > 10 && height > 10) {
+                  ipcRenderer.send('capture-done', { left, top, width, height });
+                } else {
+                  ipcRenderer.send('capture-done', null);
+                }
+              });
+              
+              document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') ipcRenderer.send('capture-done', null);
+              });
+            </script>
+          </body>
+        </html>
+      `;
+      
+      await captureWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      
+      ipcMain.once('capture-done', (_e, cropRect) => {
+         if (!cropRect) {
+           captureWin.destroy();
+           resolve(null);
+           return;
+         }
+         
+         const image = nativeImage.createFromDataURL(screenImage);
+         const cropped = image.crop({
+           x: Math.round(cropRect.left * scaleFactor),
+           y: Math.round(cropRect.top * scaleFactor),
+           width: Math.round(cropRect.width * scaleFactor),
+           height: Math.round(cropRect.height * scaleFactor)
+         });
+         captureWin.destroy();
+         resolve(cropped.toDataURL());
+      });
+      
+    } catch (e) {
+      console.error('Screen capture failed', e);
+      resolve(null);
+    }
+  });
 });
 
 ipcMain.handle('ai:file-operation', async (_event, action: string, targetPath: string, _content?: string) => {

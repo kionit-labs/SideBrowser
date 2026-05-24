@@ -34,6 +34,8 @@ export default function Assistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   
   const [input, setInput] = useState('');
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,28 +48,114 @@ export default function Assistant() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if ((window as any).electronAPI) {
+      const unsubChunk = (window as any).electronAPI.onAiStreamChunk(({ threadId, chunk }: any) => {
+        setMessages(prev => prev.map(msg => 
+          msg.id === threadId ? { ...msg, content: msg.content + chunk } : msg
+        ));
+      });
+      const unsubError = (window as any).electronAPI.onAiStreamError(({ threadId, error }: any) => {
+        setMessages(prev => prev.map(msg => 
+          msg.id === threadId ? { ...msg, content: msg.content + `\n\n**Error:** ${error}` } : msg
+        ));
+      });
+      return () => {
+        if (unsubChunk) unsubChunk();
+        if (unsubError) unsubError();
+      };
+    }
+  }, []);
+
+  const handleReadAloud = (text: string) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Remove markdown symbols for better speech
+    const cleanText = text.replace(/[*_#`]/g, '');
+    utterance.text = cleanText;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser environment.');
+      return;
+    }
+    
+    if (isListening) {
+      setIsListening(false);
+      return; // The onend handler will catch it when it stops
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const speechResult = event.results[0][0].transcript;
+      setInput(prev => prev + (prev ? ' ' : '') + speechResult);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
+
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !attachedImage) return;
     
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: input || (attachedImage ? '[Image Attached]' : ''),
       timestamp: Date.now()
     };
     
     setMessages(prev => [...prev, newUserMsg]);
     setInput('');
+    const imageToSend = attachedImage;
+    setAttachedImage(null);
     
-    // Placeholder for actual LLM call
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `This is a simulated response using **${settings.aiProvider || 'Local LLM'}**. Once IPC is fully connected, I will fetch real data.\n\nHere is some code:\n\`\`\`javascript\nconsole.log("Hello from AI!");\n\`\`\``,
-        timestamp: Date.now()
-      }]);
-    }, 1000);
+    const aiMessageId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, {
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now()
+    }]);
+
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.aiQueryLLMStream(
+         newUserMsg.content, 
+         aiMessageId, 
+         settings.aiProvider, 
+         settings.aiModel, 
+         settings.aiEndpoint, 
+         settings.aiApiKey,
+         imageToSend
+      );
+    }
+  };
+
+  const handleCaptureScreen = async () => {
+    setIsAttachmentMenuOpen(false);
+    if ((window as any).electronAPI) {
+      // Minimize or hide window briefly if needed? (optional)
+      const base64Image = await (window as any).electronAPI.aiCaptureScreenRegion();
+      if (base64Image) {
+        setAttachedImage(base64Image);
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -243,7 +331,11 @@ export default function Assistant() {
                         <Copy size={13} />
                      </button>
                      {settings.aiTtsEnabled && (
-                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Read Aloud">
+                       <button 
+                         onClick={() => handleReadAloud(msg.content)}
+                         className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" 
+                         title="Read Aloud"
+                       >
                           <Volume2 size={14} />
                        </button>
                      )}
@@ -260,6 +352,19 @@ export default function Assistant() {
 
         {/* Input Area */}
         <div className="p-4 bg-transparent border-t border-black/5 dark:border-white/5 backdrop-blur-md shrink-0">
+          
+          {attachedImage && (
+            <div className="max-w-4xl mx-auto mb-3 relative group w-max">
+              <img src={attachedImage} alt="Attached" className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm" />
+              <button 
+                onClick={() => setAttachedImage(null)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
+
           <div className="max-w-4xl mx-auto relative bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-[var(--theme-active)]/50 focus-within:border-[var(--theme-active)] transition-all flex flex-col">
             
             <textarea
@@ -309,7 +414,10 @@ export default function Assistant() {
                       <div className="h-px bg-black/10 dark:bg-white/10 my-1 mx-2" />
                       <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--theme-text)] opacity-40 tracking-wider">DISPLAYS</div>
                       
-                      <button className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group" onClick={() => setIsAttachmentMenuOpen(false)}>
+                      <button 
+                        onClick={handleCaptureScreen}
+                        className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group"
+                      >
                         <Scissors size={16} className="opacity-60 group-hover:opacity-100" />
                         <span className="font-medium">Capture Area</span>
                       </button>
@@ -320,14 +428,15 @@ export default function Assistant() {
               
               <div className="flex items-center gap-1.5">
                 <button 
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-all"
-                  title="Voice Input"
+                  onClick={toggleListening}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'}`}
+                  title={isListening ? "Listening..." : "Voice Input"}
                 >
                   <Mic size={17} />
                 </button>
-                <button 
+                <button  
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() && !attachedImage}
                   className="w-[30px] h-[30px] rounded-full bg-[var(--theme-text)] text-[var(--theme-content-bg)] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 shadow-sm"
                 >
                   <ArrowUp size={18} strokeWidth={2.5} />
