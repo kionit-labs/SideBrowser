@@ -577,21 +577,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* AI Assistant Icon */}
-            <div className="w-full px-2 flex justify-center mt-1">
-              <button 
-                onClick={() => {
-                  setView('assistant');
-                  setContextMenuTabId(null);
-                }} 
-                title="AI Assistant"
-                className={`w-full aspect-square flex items-center justify-center rounded-lg transition-all duration-200 relative group overflow-hidden ${view === 'assistant' ? 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg' : 'hover:bg-white/10 text-[var(--theme-text)]'}`}
-              >
-                {/* Micro animation for premium feel */}
-                {view !== 'assistant' && <div className="absolute inset-0 bg-gradient-to-br from-violet-500 to-fuchsia-600 opacity-0 group-hover:opacity-20 transition-opacity" />}
-                <Sparkles size={24} className={view === 'assistant' ? 'animate-pulse' : ''} />
-              </button>
-            </div>
           </div>
 
           {/* Middle Group: Scrollable Tabs */}
@@ -627,7 +612,22 @@ export default function App() {
           </div>
           
           {/* Bottom Group: Fixed Grid */}
-          <div className="w-full shrink-0 flex flex-col items-center mt-2 px-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          <div className="w-full shrink-0 flex flex-col items-center mt-2 px-1 gap-1.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            
+            {/* AI Assistant Icon */}
+            <div className="w-full px-2 flex justify-center mb-1">
+              <button 
+                onClick={() => {
+                  setView('assistant');
+                  setContextMenuTabId(null);
+                }} 
+                title="AI Assistant"
+                className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-200 ${view === 'assistant' ? 'bg-[var(--theme-active)] text-white shadow-md scale-[1.02]' : 'hover:bg-black/10 dark:hover:bg-white/10 text-[var(--theme-text)] opacity-70 hover:opacity-100'}`}
+              >
+                <Sparkles size={22} strokeWidth={1.5} />
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-1 w-full text-[var(--theme-text)] opacity-40">
               {isSecondary && (
                 <button 
