@@ -973,3 +973,27 @@ ipcMain.handle('select-directory', async (event) => {
   }
   return result.filePaths[0];
 });
+
+// ═══════════════════════════════════════════════════
+// AI Assistant IPC Handlers
+// ═══════════════════════════════════════════════════
+
+ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, _imageBase64?: string) => {
+  console.log('Received AI query:', prompt, 'thread:', threadId);
+  return `Echo from backend: ${prompt}`;
+});
+
+ipcMain.handle('ai:capture-screen-region', async (_event) => {
+  console.log('Simulating screen capture');
+  return null;
+});
+
+ipcMain.handle('ai:file-operation', async (_event, action: string, targetPath: string, _content?: string) => {
+  console.log('AI File operation:', action, targetPath);
+  return { success: true, message: 'Simulated success' };
+});
+
+ipcMain.handle('ai:execute-automation', async (_event, command: any) => {
+  console.log('AI Automation command:', command);
+  return { success: true, message: 'Simulated automation' };
+});

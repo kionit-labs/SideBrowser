@@ -28,4 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   savePasswords: (passwords: any[]) => ipcRenderer.send('save-passwords', passwords),
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
+  aiQueryLLM: (prompt: string, threadId: string, imageBase64?: string) => ipcRenderer.invoke('ai:query-llm', prompt, threadId, imageBase64),
+  aiCaptureScreenRegion: () => ipcRenderer.invoke('ai:capture-screen-region'),
+  aiFileOperation: (action: string, targetPath: string, content?: string) => ipcRenderer.invoke('ai:file-operation', action, targetPath, content),
+  aiExecuteAutomation: (command: any) => ipcRenderer.invoke('ai:execute-automation', command),
 });
