@@ -14,6 +14,7 @@ export default function Settings() {
     { id: 'General', label: t('tab.general') },
     { id: 'Window', label: t('tab.window') },
     ...(settings.passwordManagerEnabled ? [{ id: 'Passwords', label: t('tab.passwords') }] : []),
+    { id: 'AI', label: t('tab.ai') },
     { id: 'Updates', label: t('tab.updates') },
     { id: 'Shortcuts', label: t('tab.shortcuts') }
   ];
@@ -509,6 +510,102 @@ export default function Settings() {
                       </div>
                    </div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'AI' && (
+              <div className="flex flex-col animate-in fade-in duration-300">
+                <SelectItem 
+                  label={t('ai.provider')} 
+                  options={['Ollama', 'LM Studio', 'OpenAI', 'Anthropic', 'Gemini', 'Custom']} 
+                  value={settings.aiProvider} 
+                  onChange={(val: any) => updateSetting('aiProvider', val)} 
+                />
+
+                <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.model')}</h3>
+                    <input 
+                      type="text"
+                      value={settings.aiModel}
+                      onChange={(e) => updateSetting('aiModel', e.target.value)}
+                      className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
+                    />
+                  </div>
+                </div>
+
+                {(settings.aiProvider === 'Ollama' || settings.aiProvider === 'LM Studio' || settings.aiProvider === 'Custom') && (
+                  <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.endpoint')}</h3>
+                      <input 
+                        type="text"
+                        value={settings.aiEndpoint}
+                        onChange={(e) => updateSetting('aiEndpoint', e.target.value)}
+                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(settings.aiProvider === 'OpenAI' || settings.aiProvider === 'Anthropic' || settings.aiProvider === 'Gemini' || settings.aiProvider === 'Custom') && (
+                  <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.apikey')}</h3>
+                      <input 
+                        type="password"
+                        placeholder="••••••••••••••••"
+                        value={settings.aiApiKey}
+                        onChange={(e) => updateSetting('aiApiKey', e.target.value)}
+                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.workspace')}</h3>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="text"
+                        readOnly
+                        placeholder="No directory selected"
+                        value={settings.aiWorkspacePath}
+                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none min-w-[150px] max-w-[220px] truncate text-right cursor-default font-medium"
+                      />
+                      <button 
+                        onClick={async () => {
+                          if ((window as any).electronAPI && (window as any).electronAPI.selectDirectory) {
+                            const path = await (window as any).electronAPI.selectDirectory();
+                            if (path) {
+                              updateSetting('aiWorkspacePath', path);
+                            }
+                          }
+                        }}
+                        className="bg-[var(--theme-accent)] hover:opacity-95 text-white text-xs font-semibold rounded-md px-3 py-2 transition-opacity"
+                      >
+                        Browse
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <SelectItem 
+                  label={t('ai.safety')} 
+                  subtitle={t('ai.safety.sub')}
+                  options={[0, 1, 2]} 
+                  value={settings.aiRobotSafetyLevel} 
+                  onChange={(val: any) => updateSetting('aiRobotSafetyLevel', Number(val))} 
+                  optionLabels={[t('ai.safety.level0'), t('ai.safety.level1'), t('ai.safety.level2')]} 
+                />
+
+                <ToggleItem 
+                  label={t('ai.persist')} 
+                  subtitle={t('ai.persist.sub')} 
+                  enabled={settings.aiPersistHistory} 
+                  onToggle={() => updateSetting('aiPersistHistory', !settings.aiPersistHistory)} 
+                />
               </div>
             )}
 

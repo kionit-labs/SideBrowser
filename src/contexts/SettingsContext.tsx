@@ -116,7 +116,20 @@ const translations = {
     'addressbar.bottom': 'Bottom',
     'snap.right': 'Right',
     'snap.left': 'Left',
-    'browser.search.placeholder': 'Search or enter URL'
+    'browser.search.placeholder': 'Search or enter URL',
+    'tab.ai': 'AI Assistant',
+    'ai.provider': 'AI Provider',
+    'ai.model': 'Model Name',
+    'ai.endpoint': 'API Endpoint',
+    'ai.apikey': 'API Key',
+    'ai.workspace': 'Workspace Directory',
+    'ai.safety': 'Automation Safety',
+    'ai.safety.sub': 'Control how the AI controls your mouse and keyboard using robotjs.',
+    'ai.safety.level0': 'Disabled',
+    'ai.safety.level1': 'Confirm Every Action',
+    'ai.safety.level2': 'Full Auto-Pilot (Dangerous)',
+    'ai.persist': 'Save Chat History',
+    'ai.persist.sub': 'Keep your chat history saved persistently on this machine.'
   },
   'Türkçe': {
     'settings.title': 'Ayarlar',
@@ -232,7 +245,20 @@ const translations = {
     'addressbar.bottom': 'Alt',
     'snap.right': 'Sağ',
     'snap.left': 'Sol',
-    'browser.search.placeholder': 'Ara veya URL gir'
+    'browser.search.placeholder': 'Ara veya URL gir',
+    'tab.ai': 'Yapay Zeka',
+    'ai.provider': 'YZ Sağlayıcı',
+    'ai.model': 'Model Adı',
+    'ai.endpoint': 'API Uç Noktası',
+    'ai.apikey': 'API Anahtarı',
+    'ai.workspace': 'Çalışma Alanı Dizini',
+    'ai.safety': 'Otomasyon Güvenliği',
+    'ai.safety.sub': 'Yapay zekanın robotjs kullanarak fare ve klavyenizi nasıl kontrol edeceğini belirleyin.',
+    'ai.safety.level0': 'Devre Dışı',
+    'ai.safety.level1': 'Her Eylemi Onayla',
+    'ai.safety.level2': 'Tam Otomatik Pilot (Tehlikeli)',
+    'ai.persist': 'Sohbet Geçmişini Kaydet',
+    'ai.persist.sub': 'Sohbet geçmişinizi bu cihazda kalıcı olarak saklayın.'
   },
   'Deutsch': {
     'settings.title': 'Einstellungen',
@@ -348,7 +374,20 @@ const translations = {
     'addressbar.bottom': 'Unten',
     'snap.right': 'Rechts',
     'snap.left': 'Links',
-    'browser.search.placeholder': 'Suchen oder URL eingeben'
+    'browser.search.placeholder': 'Suchen oder URL eingeben',
+    'tab.ai': 'KI-Assistent',
+    'ai.provider': 'KI-Anbieter',
+    'ai.model': 'Modellname',
+    'ai.endpoint': 'API-Endpunkt',
+    'ai.apikey': 'API-Schlüssel',
+    'ai.workspace': 'Arbeitsbereichsverzeichnis',
+    'ai.safety': 'Automationssicherheit',
+    'ai.safety.sub': 'Steuern Sie, wie die KI Ihre Maus und Tastatur über robotjs steuert.',
+    'ai.safety.level0': 'Deaktiviert',
+    'ai.safety.level1': 'Jede Aktion bestätigen',
+    'ai.safety.level2': 'Vollständiger Auto-Pilot (Gefährlich)',
+    'ai.persist': 'Chatverlauf speichern',
+    'ai.persist.sub': 'Speichern Sie Ihren Chatverlauf dauerhaft auf diesem Gerät.'
   }
 } as const;
 
@@ -399,6 +438,13 @@ export interface SettingsState {
   searchEngine: string;
   dynamicSidebar: boolean;
   shortcuts: Shortcut[];
+  aiProvider: 'Ollama' | 'LM Studio' | 'OpenAI' | 'Anthropic' | 'Gemini' | 'Custom';
+  aiModel: string;
+  aiApiKey: string;
+  aiEndpoint: string;
+  aiWorkspacePath: string;
+  aiRobotSafetyLevel: number;
+  aiPersistHistory: boolean;
 }
 
 const defaultSettings: SettingsState = {
@@ -427,6 +473,13 @@ const defaultSettings: SettingsState = {
     { id: '4', name: 'X', url: 'https://x.com' },
     { id: '5', name: 'Youtube', url: 'https://youtube.com' },
   ],
+  aiProvider: 'Ollama',
+  aiModel: 'llama3',
+  aiApiKey: '',
+  aiEndpoint: 'http://localhost:11434',
+  aiWorkspacePath: '',
+  aiRobotSafetyLevel: 1,
+  aiPersistHistory: true,
 };
 
 interface SettingsContextType {

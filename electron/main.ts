@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog } from 'electron';
 import type { WebContents, Session } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -960,4 +960,16 @@ ipcMain.handle('get-passwords', () => {
 
 ipcMain.on('save-passwords', (_event, passwords) => {
   if (passwordsStore) passwordsStore.set('passwords', passwords);
+});
+
+ipcMain.handle('select-directory', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return null;
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+  return result.filePaths[0];
 });

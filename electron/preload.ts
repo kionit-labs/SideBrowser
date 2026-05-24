@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPasswords: () => ipcRenderer.invoke('get-passwords'),
   savePasswords: (passwords: any[]) => ipcRenderer.send('save-passwords', passwords),
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
+  selectDirectory: () => ipcRenderer.invoke('select-directory'),
 });

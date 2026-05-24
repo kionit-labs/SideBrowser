@@ -25,7 +25,8 @@
     "preview": "vite preview",
     "rebuild": "electron-rebuild -f -w robotjs",
     "dist": "npm run build && npm run rebuild && electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "graphify": "node scripts/graphify.js"
   },
   "build": {
     "appId": "com.kionitlabs.sidebrowser",
