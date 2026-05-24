@@ -102,7 +102,7 @@ export default function Assistant() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="absolute top-0 left-0 bottom-0 w-[260px] bg-white dark:bg-[#1e1e2e] border-r border-black/10 dark:border-white/10 z-50 flex flex-col shadow-2xl"
+              className="absolute top-0 left-0 bottom-0 w-[260px] bg-[var(--theme-content-bg)] border-r border-black/10 dark:border-white/10 z-50 flex flex-col shadow-2xl"
             >
               <div className="p-3 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                 <span className="font-semibold text-sm text-[var(--theme-text)]">Chat History</span>
@@ -196,7 +196,7 @@ export default function Assistant() {
                 <div className={`p-3.5 rounded-2xl text-[14px] leading-relaxed break-words shadow-sm ${
                   msg.role === 'user' 
                     ? 'bg-[var(--theme-active)] text-white rounded-tr-sm' 
-                    : 'bg-white dark:bg-[#1e1e2e] text-[var(--theme-text)] border border-black/5 dark:border-white/5 rounded-tl-sm'
+                    : 'bg-black/5 dark:bg-white/5 text-[var(--theme-text)] border border-black/5 dark:border-white/5 rounded-tl-sm'
                 }`}>
                   {msg.role === 'user' ? (
                     <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -244,7 +244,7 @@ export default function Assistant() {
 
         {/* Input Area */}
         <div className="p-4 bg-transparent border-t border-black/5 dark:border-white/5 backdrop-blur-md shrink-0">
-          <div className="max-w-4xl mx-auto relative bg-white dark:bg-[#1e1e2e] border border-black/10 dark:border-white/10 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-[var(--theme-active)]/50 focus-within:border-[var(--theme-active)] transition-all flex flex-col">
+          <div className="max-w-4xl mx-auto relative bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-[var(--theme-active)]/50 focus-within:border-[var(--theme-active)] transition-all flex flex-col">
             
             <textarea
               value={input}
@@ -273,7 +273,7 @@ export default function Assistant() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute bottom-full left-0 mb-3 w-56 bg-white dark:bg-[#1e1e2e] border border-black/10 dark:border-white/10 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] overflow-hidden z-50 flex flex-col text-sm p-1.5 backdrop-blur-xl"
+                      className="absolute bottom-full left-0 mb-3 w-56 bg-[var(--theme-content-bg)] border border-black/10 dark:border-white/10 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] overflow-hidden z-50 flex flex-col text-sm p-1.5"
                     >
                       <button className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group" onClick={() => setIsAttachmentMenuOpen(false)}>
                         <Paperclip size={16} className="opacity-60 group-hover:opacity-100" />
