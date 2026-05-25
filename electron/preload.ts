@@ -29,8 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearPasswords: () => ipcRenderer.send('clear-passwords'),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   aiQueryLLM: (prompt: string, threadId: string, imageBase64?: string) => ipcRenderer.invoke('ai:query-llm', prompt, threadId, imageBase64),
-  aiQueryLLMStream: (prompt: string, threadId: string, provider: string, model: string, endpoint: string, apiKey: string, imageBase64?: string) => {
-    ipcRenderer.send('ai:query-llm-stream', { prompt, threadId, provider, model, endpoint, apiKey, imageBase64 });
+  aiQueryLLMStream: (prompt: string, threadId: string, provider: string, model: string, endpoint: string, apiKey: string, imageBase64?: string, modelStyle?: string) => {
+    ipcRenderer.send('ai:query-llm-stream', { prompt, threadId, provider, model, endpoint, apiKey, imageBase64, modelStyle });
   },
   onAiStreamChunk: (callback: (data: { threadId: string, chunk: string }) => void) => {
     const handler = (_event: any, data: any) => callback(data);

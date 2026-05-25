@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Bot, User, Paperclip, Scissors, Trash2, 
-  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, Volume2, RotateCcw, FileText, AppWindow
+  Bot, User, Scissors, Trash2, 
+  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -21,39 +21,103 @@ interface Message {
   attachedTextName?: string;
 }
 
-interface Thread {
+interface ChatSession {
   id: string;
   title: string;
+  messages: Message[];
   updatedAt: number;
 }
 
 export default function Assistant() {
   const { settings } = useSettings();
   
-  const [threads, setThreads] = useState<Thread[]>([
-    { id: '1', title: 'Default Conversation', updatedAt: Date.now() }
-  ]);
-  const [activeThreadId, setActiveThreadId] = useState<string>('1');
-  
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   
   const [input, setInput] = useState('');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [attachedText, setAttachedText] = useState<{name: string, content: string} | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [openWindows, setOpenWindows] = useState<any[]>([]);
+  const [modelStyle, setModelStyle] = useState<'Low' | 'Mid' | 'High'>('Mid');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load sessions from store on mount
+  useEffect(() => {
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.getStoreValue('aiChatSessions').then((saved: ChatSession[]) => {
+        if (saved && saved.length > 0) {
+          setSessions(saved);
+          setActiveSessionId(saved[0].id);
+        } else {
+          const newSession = { id: Date.now().toString(), title: 'New Chat', messages: [], updatedAt: Date.now() };
+          setSessions([newSession]);
+          setActiveSessionId(newSession.id);
+        }
+      });
+    }
+  }, []);
+
+  // Sync active session's messages to local state when session changes
+  useEffect(() => {
+    if (activeSessionId) {
+      const session = sessions.find(s => s.id === activeSessionId);
+      if (session) {
+        setMessages(session.messages);
+      }
+    }
+  }, [activeSessionId]);
+
+  // Sync local messages back to sessions & store when they change
+  useEffect(() => {
+    if (activeSessionId && sessions.length > 0) {
+      setSessions(prev => prev.map(s => 
+        s.id === activeSessionId ? { ...s, messages, updatedAt: Date.now() } : s
+      ));
+    }
+    scrollToBottom();
+  }, [messages]);
+
+  // Auto-save sessions to store
+  useEffect(() => {
+    if ((window as any).electronAPI && sessions.length > 0) {
+      (window as any).electronAPI.setStoreValue('aiChatSessions', sessions);
+    }
+  }, [sessions]);
+
+  const createNewSession = () => {
+    const newSession = { id: Date.now().toString(), title: 'New Chat', messages: [], updatedAt: Date.now() };
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newSession.id);
+    setIsSidebarOpen(false);
+  };
+
+  const deleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions(prev => {
+      const next = prev.filter(s => s.id !== id);
+      if (next.length === 0) {
+        const newSession = { id: Date.now().toString(), title: 'New Chat', messages: [], updatedAt: Date.now() };
+        setActiveSessionId(newSession.id);
+        return [newSession];
+      }
+      if (activeSessionId === id) setActiveSessionId(next[0].id);
+      return next;
+    });
+  };
+
+  const clearAllSessions = () => {
+    const newSession = { id: Date.now().toString(), title: 'New Chat', messages: [], updatedAt: Date.now() };
+    setSessions([newSession]);
+    setActiveSessionId(newSession.id);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   useEffect(() => {
     if (isAttachmentMenuOpen && (window as any).electronAPI?.aiGetOpenWindows) {
@@ -129,6 +193,12 @@ export default function Assistant() {
   const handleSend = () => {
     if (!input.trim() && !attachedImage && !attachedText) return;
 
+    if (messages.length === 0) {
+      setSessions(prev => prev.map(s => 
+        s.id === activeSessionId ? { ...s, title: input.substring(0, 25) + (input.length > 25 ? '...' : '') } : s
+      ));
+    }
+
     let finalPrompt = input;
     if (attachedText) {
       finalPrompt = `[Attached Document: ${attachedText.name}]\n\n${attachedText.content}\n\n${input}`;
@@ -165,7 +235,8 @@ export default function Assistant() {
          settings.aiModel, 
          settings.aiEndpoint, 
          settings.aiApiKey,
-         sentImage || undefined
+         sentImage || undefined,
+         modelStyle
       );
     }
   };
@@ -204,12 +275,7 @@ export default function Assistant() {
     }
   };
 
-  const createNewThread = () => {
-    const newThread: Thread = { id: Date.now().toString(), title: 'New Conversation', updatedAt: Date.now() };
-    setThreads([newThread, ...threads]);
-    setActiveThreadId(newThread.id);
-    setMessages([{ id: Date.now().toString(), role: 'assistant', content: 'How can I help you?', timestamp: Date.now() }]);
-  };
+
 
   return (
     <div className="flex h-full w-full bg-[var(--theme-content-bg)] overflow-hidden relative" style={{ WebkitAppRegion: 'no-drag' } as any}>
@@ -232,31 +298,52 @@ export default function Assistant() {
             >
               <div className="p-3 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                 <span className="font-semibold text-sm text-[var(--theme-text)]">Chat History</span>
-                <button 
-                  onClick={createNewThread}
-                  className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors"
-                >
-                  <Plus size={16} className="text-[var(--theme-text)]" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={clearAllSessions}
+                    title="Clear All History"
+                    className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-md transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button 
+                    onClick={createNewSession}
+                    title="New Chat"
+                    className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors"
+                  >
+                    <Plus size={16} className="text-[var(--theme-text)]" />
+                  </button>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1 no-scrollbar">
-                {threads.map(thread => (
-                  <button 
-                    key={thread.id}
-                    onClick={() => {
-                      setActiveThreadId(thread.id);
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors ${
-                      activeThreadId === thread.id 
-                        ? 'bg-[var(--theme-active)] text-white' 
-                        : 'text-[var(--theme-text)] hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
-                    }`}
-                  >
-                    <MessageSquare size={16} />
-                    <span className="truncate flex-1">{thread.title}</span>
-                  </button>
+                {sessions.map(session => (
+                  <div key={session.id} className="relative group">
+                    <button 
+                      onClick={() => {
+                        setActiveSessionId(session.id);
+                        setIsSidebarOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors ${
+                        activeSessionId === session.id 
+                          ? 'bg-[var(--theme-active)] text-white' 
+                          : 'text-[var(--theme-text)] hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      <MessageSquare size={16} />
+                      <span className="truncate flex-1 pr-6">{session.title}</span>
+                    </button>
+                    {sessions.length > 1 && (
+                      <button 
+                        onClick={(e) => deleteSession(session.id, e)}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-all ${
+                          activeSessionId === session.id ? 'text-white/70 opacity-100' : 'text-red-400 opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </motion.div>
@@ -458,15 +545,16 @@ export default function Assistant() {
             
             <div className="flex items-center justify-between px-3 pb-3">
               
-              <div className="relative">
-                <button 
-                  onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                  className={`p-1.5 text-[var(--theme-text)] rounded-full transition-colors flex items-center justify-center ${isAttachmentMenuOpen ? 'bg-black/10 dark:bg-white/10 opacity-100' : 'opacity-60 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'}`}
-                >
-                  <Plus size={22} className={`transition-transform duration-200 ${isAttachmentMenuOpen ? 'rotate-45' : ''}`} />
-                </button>
-                
-                <AnimatePresence>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+                    className={`p-1.5 text-[var(--theme-text)] rounded-full transition-colors flex items-center justify-center ${isAttachmentMenuOpen ? 'bg-black/10 dark:bg-white/10 opacity-100' : 'opacity-60 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'}`}
+                  >
+                    <Plus size={22} className={`transition-transform duration-200 ${isAttachmentMenuOpen ? 'rotate-45' : ''}`} />
+                  </button>
+                  
+                  <AnimatePresence>
                   {isAttachmentMenuOpen && (
                     <motion.div 
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -516,6 +604,27 @@ export default function Assistant() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+                </div>
+                
+                <select
+                  value={modelStyle}
+                  onChange={(e) => setModelStyle(e.target.value as any)}
+                  className="bg-transparent text-[var(--theme-text)] border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors outline-none"
+                >
+                  {['LM Studio', 'Ollama', 'Custom'].includes(settings.aiProvider) ? (
+                     <>
+                       <option value="Low" className="text-black">Low (Speed)</option>
+                       <option value="Mid" className="text-black">Mid (Balanced)</option>
+                       <option value="High" className="text-black">High (Reasoning)</option>
+                     </>
+                  ) : (
+                     <>
+                       <option value="Mid" className="text-black">Balanced</option>
+                       <option value="Low" className="text-black">Creative</option>
+                       <option value="High" className="text-black">Precise</option>
+                     </>
+                  )}
+                </select>
               </div>
               
               <div className="flex items-center gap-1.5">

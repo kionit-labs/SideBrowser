@@ -995,19 +995,32 @@ ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, 
   return `Echo from backend: ${prompt}`;
 });
 
-ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imageBase64 }) => {
+ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imageBase64, modelStyle }) => {
   try {
+    let temperature = 0.7;
+    let systemPrompt = '';
+    if (modelStyle === 'Low') {
+      temperature = 0.2;
+      systemPrompt = 'You are a helpful assistant. Be extremely concise and answer immediately without verbose explanations.';
+    } else if (modelStyle === 'High') {
+      temperature = 0.9;
+      systemPrompt = 'You are an expert analytical assistant. Think step-by-step and explore all possibilities deeply before answering. Provide comprehensive reasoning.';
+    }
+
     if (provider === 'Ollama') {
        const ollama = new Ollama({ host: endpoint || 'http://localhost:11434' });
-       const messages: any[] = [{ role: 'user', content: prompt }];
+       const messages: any[] = [];
+       if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+       messages.push({ role: 'user', content: prompt });
        if (imageBase64) {
           const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-          messages[0].images = [base64Data];
+          messages[messages.length - 1].images = [base64Data];
        }
        const response = await ollama.chat({
           model: model || 'llama3',
           messages: messages,
           stream: true,
+          options: { temperature }
        });
        for await (const part of response) {
           event.reply('ai:query-llm-chunk', { threadId, chunk: part.message.content });
@@ -1019,9 +1032,11 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
          baseURL = baseURL.replace(/\/$/, '') + '/v1';
        }
        const openai = new OpenAI({ baseURL: baseURL, apiKey: apiKey || 'not-needed' });
-       const messages: any[] = [{ role: 'user', content: prompt }];
+       const messages: any[] = [];
+       if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+       messages.push({ role: 'user', content: prompt });
        if (imageBase64) {
-          messages[0].content = [
+          messages[messages.length - 1].content = [
             { type: "text", text: prompt },
             { type: "image_url", image_url: { url: imageBase64 } }
           ];
@@ -1029,6 +1044,7 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        const stream = await openai.chat.completions.create({
           model: model || 'local-model',
           messages: messages,
+          temperature: temperature,
           stream: true,
        });
        for await (const part of stream) {
@@ -1037,7 +1053,11 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'Gemini') {
        const genAI = new GoogleGenerativeAI(apiKey);
-       const genModel = genAI.getGenerativeModel({ model: model || 'gemini-1.5-flash' });
+       const genModel = genAI.getGenerativeModel({ 
+         model: model || 'gemini-1.5-flash',
+         systemInstruction: systemPrompt || undefined,
+         generationConfig: { temperature }
+       });
        const reqContent: any[] = [prompt];
        if (imageBase64) {
           const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
