@@ -995,7 +995,7 @@ ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, 
   return `Echo from backend: ${prompt}`;
 });
 
-ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imageBase64, modelStyle }) => {
+ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imagesBase64, modelStyle }) => {
   try {
     let temperature = 0.7;
     let systemPrompt = '';
@@ -1012,9 +1012,9 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        const messages: any[] = [];
        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
        messages.push({ role: 'user', content: prompt });
-       if (imageBase64) {
-          const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-          messages[messages.length - 1].images = [base64Data];
+       if (imagesBase64 && imagesBase64.length > 0) {
+          const base64DataList = imagesBase64.map((img: string) => img.replace(/^data:image\/\w+;base64,/, ''));
+          messages[messages.length - 1].images = base64DataList;
        }
        const response = await ollama.chat({
           model: model || 'llama3',
@@ -1035,10 +1035,10 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        const messages: any[] = [];
        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
        messages.push({ role: 'user', content: prompt });
-       if (imageBase64) {
+       if (imagesBase64 && imagesBase64.length > 0) {
           messages[messages.length - 1].content = [
             { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: imageBase64 } }
+            ...imagesBase64.map((img: string) => ({ type: "image_url", image_url: { url: img } }))
           ];
        }
        const stream = await openai.chat.completions.create({
@@ -1059,11 +1059,13 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
          generationConfig: { temperature }
        });
        const reqContent: any[] = [prompt];
-       if (imageBase64) {
-          const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
-          const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-          reqContent.push({
-            inlineData: { data: base64Data, mimeType }
+       if (imagesBase64 && imagesBase64.length > 0) {
+          imagesBase64.forEach((img: string) => {
+            const mimeType = img.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
+            const base64Data = img.replace(/^data:image\/\w+;base64,/, '');
+            reqContent.push({
+              inlineData: { data: base64Data, mimeType }
+            });
           });
        }
        const result = await genModel.generateContentStream(reqContent);

@@ -17,7 +17,7 @@ interface Message {
   rawContent?: string;
   timestamp: number;
   innerThought?: string;
-  attachedImage?: string;
+  attachedImages?: string[];
   attachedTextName?: string;
 }
 
@@ -40,7 +40,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   
   const [input, setInput] = useState('');
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [attachedText, setAttachedText] = useState<{name: string, content: string} | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -203,7 +203,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   };
 
   const handleSend = () => {
-    if (!input.trim() && !attachedImage && !attachedText) return;
+    if (!input.trim() && attachedImages.length === 0 && !attachedText) return;
 
     if (messages.length === 0) {
       setSessions(prev => prev.map(s => 
@@ -220,15 +220,18 @@ export default function Assistant({ onNavigate }: AssistantProps) {
       id: Date.now().toString(),
       role: 'user',
       content: input,
-      attachedImage: attachedImage || undefined,
+      attachedImages: attachedImages.length > 0 ? [...attachedImages] : undefined,
       attachedTextName: attachedText ? attachedText.name : undefined,
       timestamp: Date.now()
     };
     
     setMessages(prev => [...prev, userMessage]);
+    setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMessage], updatedAt: Date.now() } : s));
+    
+    const sentImages = [...attachedImages];
+    
     setInput('');
-    const sentImage = attachedImage;
-    setAttachedImage(null);
+    setAttachedImages([]);
     setAttachedText(null);
     
     const aiMessageId = (Date.now() + 1).toString();
@@ -247,7 +250,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
          settings.aiModel, 
          settings.aiEndpoint, 
          settings.aiApiKey,
-         sentImage || undefined,
+         sentImages,
          modelStyle
       );
     }
@@ -256,9 +259,13 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const handleCaptureScreen = async () => {
     setIsAttachmentMenuOpen(false);
     if ((window as any).electronAPI) {
-      const base64Image = await (window as any).electronAPI.aiCaptureScreenRegion();
-      if (base64Image) {
-        setAttachedImage(base64Image);
+      try {
+        const base64Image = await (window as any).electronAPI.aiCaptureScreenRegion();
+        if (base64Image) {
+          setAttachedImages(prev => [...prev, base64Image]);
+        }
+      } catch (err) {
+        console.error("Capture failed", err);
       }
     }
   };
@@ -269,11 +276,9 @@ export default function Assistant({ onNavigate }: AssistantProps) {
       const result = await (window as any).electronAPI.aiAttachFile();
       if (result) {
         if (result.type === 'image') {
-          setAttachedImage(result.data);
-          setAttachedText(null);
+          setAttachedImages(prev => [...prev, result.data]);
         } else if (result.type === 'text') {
           setAttachedText({ name: result.name, content: result.data });
-          setAttachedImage(null);
         }
       }
     }
@@ -465,8 +470,12 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                 }`}>
                   {msg.role === 'user' ? (
                     <div className="flex flex-col gap-2">
-                      {msg.attachedImage && (
-                        <img src={msg.attachedImage} alt="Attachment" className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-black/10 dark:bg-white/10" />
+                      {msg.attachedImages && msg.attachedImages.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {msg.attachedImages.map((img, idx) => (
+                            <img key={idx} src={img} alt={`Attachment ${idx}`} className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-black/10 dark:bg-white/10" />
+                          ))}
+                        </div>
                       )}
                       {msg.attachedTextName && (
                         <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 px-3 py-2 rounded-lg text-xs font-medium w-max">
@@ -577,15 +586,19 @@ export default function Assistant({ onNavigate }: AssistantProps) {
 
         <div className="p-4 bg-transparent border-t border-black/5 dark:border-white/5 backdrop-blur-md shrink-0">
           
-          {attachedImage && (
-            <div className="max-w-4xl mx-auto mb-3 relative group w-max">
-              <img src={attachedImage} alt="Attached" className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm" />
-              <button 
-                onClick={() => setAttachedImage(null)}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-              >
-                <Trash2 size={12} />
-              </button>
+          {attachedImages.length > 0 && (
+            <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
+              {attachedImages.map((img, idx) => (
+                <div key={idx} className="relative group">
+                  <img src={img} alt={`Attached ${idx}`} className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm" />
+                  <button 
+                    onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           {attachedText && (
@@ -619,7 +632,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                       const reader = new FileReader();
                       reader.onload = (event) => {
                         if (event.target?.result) {
-                          setAttachedImage(event.target.result as string);
+                          setAttachedImages(prev => [...prev, event.target!.result as string]);
                         }
                       };
                       reader.readAsDataURL(file);
@@ -666,7 +679,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                         {openWindows.map(win => (
                           <button 
                             key={win.id}
-                            onClick={() => { setAttachedImage(win.thumbnail); setIsAttachmentMenuOpen(false); }}
+                            onClick={() => { setAttachedImages(prev => [...prev, win.thumbnail]); setIsAttachmentMenuOpen(false); }}
                             className="flex items-center gap-3 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group"
                           >
                             {win.icon ? (
@@ -728,7 +741,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                 </button>
                 <button  
                   onClick={handleSend}
-                  disabled={!input.trim() && !attachedImage}
+                  disabled={!input.trim() && attachedImages.length === 0 && !attachedText}
                   className="w-[30px] h-[30px] rounded-full bg-[var(--theme-text)] text-[var(--theme-content-bg)] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 shadow-sm"
                 >
                   <ArrowUp size={18} strokeWidth={2.5} />
