@@ -17,6 +17,8 @@ interface Message {
   rawContent?: string;
   timestamp: number;
   innerThought?: string;
+  attachedImage?: string;
+  attachedTextName?: string;
 }
 
 interface Thread {
@@ -37,6 +39,7 @@ export default function Assistant() {
   
   const [input, setInput] = useState('');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedText, setAttachedText] = useState<{name: string, content: string} | null>(null);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -124,19 +127,27 @@ export default function Assistant() {
   };
 
   const handleSend = () => {
-    if (!input.trim() && !attachedImage) return;
-    
-    const newUserMsg: Message = {
+    if (!input.trim() && !attachedImage && !attachedText) return;
+
+    let finalPrompt = input;
+    if (attachedText) {
+      finalPrompt = `[Attached Document: ${attachedText.name}]\n\n${attachedText.content}\n\n${input}`;
+    }
+
+    const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input || (attachedImage ? '[Image Attached]' : ''),
+      content: input,
+      attachedImage: attachedImage || undefined,
+      attachedTextName: attachedText ? attachedText.name : undefined,
       timestamp: Date.now()
     };
     
-    setMessages(prev => [...prev, newUserMsg]);
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
-    const imageToSend = attachedImage;
+    const sentImage = attachedImage;
     setAttachedImage(null);
+    setAttachedText(null);
     
     const aiMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, {
@@ -148,13 +159,13 @@ export default function Assistant() {
 
     if ((window as any).electronAPI) {
       (window as any).electronAPI.aiQueryLLMStream(
-         newUserMsg.content, 
+         finalPrompt, 
          aiMessageId, 
          settings.aiProvider, 
          settings.aiModel, 
          settings.aiEndpoint, 
          settings.aiApiKey,
-         imageToSend
+         sentImage || undefined
       );
     }
   };
@@ -172,9 +183,15 @@ export default function Assistant() {
   const handleAttachFile = async () => {
     setIsAttachmentMenuOpen(false);
     if ((window as any).electronAPI) {
-      const base64Image = await (window as any).electronAPI.aiAttachFile();
-      if (base64Image) {
-        setAttachedImage(base64Image);
+      const result = await (window as any).electronAPI.aiAttachFile();
+      if (result) {
+        if (result.type === 'image') {
+          setAttachedImage(result.data);
+          setAttachedText(null);
+        } else if (result.type === 'text') {
+          setAttachedText({ name: result.name, content: result.data });
+          setAttachedImage(null);
+        }
       }
     }
   };
@@ -305,7 +322,18 @@ export default function Assistant() {
                     : 'bg-black/5 dark:bg-white/5 text-[var(--theme-text)] border border-black/5 dark:border-white/5 rounded-tl-sm'
                 }`}>
                   {msg.role === 'user' ? (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="flex flex-col gap-2">
+                      {msg.attachedImage && (
+                        <img src={msg.attachedImage} alt="Attachment" className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-black/10 dark:bg-white/10" />
+                      )}
+                      {msg.attachedTextName && (
+                        <div className="flex items-center gap-2 bg-black/10 dark:bg-white/10 px-3 py-2 rounded-lg text-xs font-medium w-max">
+                          <FileText size={14} />
+                          {msg.attachedTextName}
+                        </div>
+                      )}
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    </div>
                   ) : (
                     <div className="flex-1 w-full max-w-full min-w-0">
                       {msg.innerThought && (
@@ -395,6 +423,20 @@ export default function Assistant() {
               <img src={attachedImage} alt="Attached" className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm" />
               <button 
                 onClick={() => setAttachedImage(null)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
+          {attachedText && (
+            <div className="max-w-4xl mx-auto mb-3 relative group w-max">
+              <div className="flex items-center gap-2 bg-black/5 dark:bg-white/5 px-3 py-2 rounded-lg text-sm text-[var(--theme-text)] font-medium border border-black/10 dark:border-white/10">
+                <FileText size={16} />
+                {attachedText.name}
+              </div>
+              <button 
+                onClick={() => setAttachedText(null)}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
               >
                 <Trash2 size={12} />

@@ -1200,18 +1200,46 @@ ipcMain.handle('ai:capture-screen-region', async (event) => {
 ipcMain.handle('ai:attach-file', async () => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: 'Select an Image to Attach',
+      title: 'Select a File to Attach',
       properties: ['openFile'],
-      filters: [{ name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }]
+      filters: [
+        { name: 'All Supported', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg', 'pdf', 'txt', 'md', 'js', 'ts', 'json', 'csv'] },
+        { name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] },
+        { name: 'Documents', extensions: ['pdf', 'txt', 'md', 'js', 'ts', 'json', 'csv'] }
+      ]
     });
     
     if (canceled || filePaths.length === 0) return null;
     
     const fs = require('fs');
     const path = require('path');
-    const fileBuffer = fs.readFileSync(filePaths[0]);
-    const ext = path.extname(filePaths[0]).replace('.', '') || 'png';
-    return `data:image/${ext};base64,${fileBuffer.toString('base64')}`;
+    const filePath = filePaths[0];
+    const ext = path.extname(filePath).replace('.', '').toLowerCase() || 'png';
+    const fileName = path.basename(filePath);
+    
+    if (['jpg', 'png', 'gif', 'webp', 'jpeg'].includes(ext)) {
+      const fileBuffer = fs.readFileSync(filePath);
+      return { type: 'image', data: `data:image/${ext};base64,${fileBuffer.toString('base64')}`, name: fileName };
+    } else if (ext === 'pdf') {
+      try {
+        const pdf = require('pdf-parse');
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdf(dataBuffer);
+        return { type: 'text', data: data.text, name: fileName };
+      } catch (err) {
+        console.error('PDF parsing error', err);
+        return null;
+      }
+    } else {
+      // Treat as plain text
+      try {
+        const text = fs.readFileSync(filePath, 'utf-8');
+        return { type: 'text', data: text, name: fileName };
+      } catch (err) {
+        console.error('Text parsing error', err);
+        return null;
+      }
+    }
   } catch (err) {
     console.error('Attach file failed:', err);
     return null;
