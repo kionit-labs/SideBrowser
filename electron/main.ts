@@ -764,7 +764,7 @@ applySessionHacks(session.fromPartition('persist:sidebrowser'), true);
     console.warn("Failed to create Tray icon:", err);
   }
 
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     // Automatically allow media (microphone/camera) for the app
     if (permission === 'media') {
       callback(true);
@@ -995,13 +995,18 @@ ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, 
   return `Echo from backend: ${prompt}`;
 });
 
-ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey }) => {
+ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imageBase64 }) => {
   try {
     if (provider === 'Ollama') {
        const ollama = new Ollama({ host: endpoint || 'http://localhost:11434' });
+       const messages: any[] = [{ role: 'user', content: prompt }];
+       if (imageBase64) {
+          const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          messages[0].images = [base64Data];
+       }
        const response = await ollama.chat({
           model: model || 'llama3',
-          messages: [{ role: 'user', content: prompt }],
+          messages: messages,
           stream: true,
        });
        for await (const part of response) {
@@ -1014,9 +1019,16 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
          baseURL = baseURL.replace(/\/$/, '') + '/v1';
        }
        const openai = new OpenAI({ baseURL: baseURL, apiKey: apiKey || 'not-needed' });
+       const messages: any[] = [{ role: 'user', content: prompt }];
+       if (imageBase64) {
+          messages[0].content = [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageBase64 } }
+          ];
+       }
        const stream = await openai.chat.completions.create({
           model: model || 'local-model',
-          messages: [{ role: 'user', content: prompt }],
+          messages: messages,
           stream: true,
        });
        for await (const part of stream) {
@@ -1026,7 +1038,15 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
     } else if (provider === 'Gemini') {
        const genAI = new GoogleGenerativeAI(apiKey);
        const genModel = genAI.getGenerativeModel({ model: model || 'gemini-1.5-flash' });
-       const result = await genModel.generateContentStream(prompt);
+       const reqContent: any[] = [prompt];
+       if (imageBase64) {
+          const mimeType = imageBase64.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
+          const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          reqContent.push({
+            inlineData: { data: base64Data, mimeType }
+          });
+       }
+       const result = await genModel.generateContentStream(reqContent);
        for await (const chunk of result.stream) {
          event.reply('ai:query-llm-chunk', { threadId, chunk: chunk.text() });
        }
@@ -1039,19 +1059,27 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
   }
 });
 
-ipcMain.handle('ai:capture-screen-region', async (_event) => {
+ipcMain.handle('ai:capture-screen-region', async (event) => {
   return new Promise(async (resolve) => {
     try {
-      const primaryDisplay = screen.getPrimaryDisplay();
-      const { width, height } = primaryDisplay.size;
-      const { scaleFactor } = primaryDisplay; // For high DPI displays
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const targetDisplay = win ? screen.getDisplayNearestPoint(win.getBounds()) : screen.getPrimaryDisplay();
+      const { width, height } = targetDisplay.size;
+      const { scaleFactor } = targetDisplay; // For high DPI displays
       
-      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: width * scaleFactor, height: height * scaleFactor } });
-      const screenImage = sources[0].thumbnail.toDataURL();
+      const sources = await desktopCapturer.getSources({ 
+        types: ['screen'], 
+        thumbnailSize: { 
+          width: Math.floor(width * scaleFactor), 
+          height: Math.floor(height * scaleFactor) 
+        } 
+      });
+      const source = sources.find(s => s.display_id === targetDisplay.id.toString()) || sources[0];
+      const screenImage = source.thumbnail.toDataURL();
       
       const captureWin = new BrowserWindow({
-        x: primaryDisplay.bounds.x,
-        y: primaryDisplay.bounds.y,
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
         width, height,
         transparent: true,
         frame: false,
@@ -1167,6 +1195,71 @@ ipcMain.handle('ai:capture-screen-region', async (_event) => {
       resolve(null);
     }
   });
+});
+
+ipcMain.handle('ai:attach-file', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Select an Image to Attach',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }]
+    });
+    
+    if (canceled || filePaths.length === 0) return null;
+    
+    const fs = require('fs');
+    const path = require('path');
+    const fileBuffer = fs.readFileSync(filePaths[0]);
+    const ext = path.extname(filePaths[0]).replace('.', '') || 'png';
+    return `data:image/${ext};base64,${fileBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('Attach file failed:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('ai:capture-app', async (event) => {
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return null;
+    const image = await win.webContents.capturePage();
+    return image.toDataURL();
+  } catch (err) {
+    console.error('Capture app failed:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('ai:get-open-windows', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({ types: ['window'], fetchWindowIcons: true });
+    return sources.map(s => ({
+      id: s.id,
+      name: s.name,
+      thumbnail: s.thumbnail.toDataURL(),
+      icon: s.appIcon ? s.appIcon.toDataURL() : null
+    }));
+  } catch (err) {
+    console.error('Failed to get open windows', err);
+    return [];
+  }
+});
+
+ipcMain.handle('ai:trigger-dictation', async () => {
+  try {
+    const robot = require('robotjs');
+    if (process.platform === 'win32') {
+      // Windows Dictation shortcut is Win + H
+      robot.keyTap('h', ['command']);
+      return true;
+    } else {
+      console.log('Dictation trigger not natively supported on this OS via this shortcut');
+      return false;
+    }
+  } catch (err) {
+    console.error('Robotjs failed to trigger dictation:', err);
+    return false;
+  }
 });
 
 ipcMain.handle('ai:file-operation', async (_event, action: string, targetPath: string, _content?: string) => {

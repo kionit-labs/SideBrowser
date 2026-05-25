@@ -48,6 +48,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.off('ai:query-llm-error', handler);
   },
   aiCaptureScreenRegion: () => ipcRenderer.invoke('ai:capture-screen-region'),
+  aiAttachFile: () => ipcRenderer.invoke('ai:attach-file'),
+  aiCaptureApp: () => ipcRenderer.invoke('ai:capture-app'),
+  aiGetOpenWindows: () => ipcRenderer.invoke('ai:get-open-windows'),
+  aiTriggerDictation: () => ipcRenderer.invoke('ai:trigger-dictation'),
   aiFileOperation: (action: string, targetPath: string, content?: string) => ipcRenderer.invoke('ai:file-operation', action, targetPath, content),
   aiExecuteAutomation: (command: any) => ipcRenderer.invoke('ai:execute-automation', command),
 });

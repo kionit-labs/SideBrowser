@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, User, Paperclip, Scissors, Trash2, 
-  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, Volume2, RotateCcw
+  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, Volume2, RotateCcw, FileText, AppWindow
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -12,9 +12,11 @@ import { useSettings } from './contexts/SettingsContext';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
+  rawContent?: string;
   timestamp: number;
+  innerThought?: string;
 }
 
 interface Thread {
@@ -36,8 +38,10 @@ export default function Assistant() {
   const [input, setInput] = useState('');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [openWindows, setOpenWindows] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -49,11 +53,39 @@ export default function Assistant() {
   }, [messages]);
 
   useEffect(() => {
+    if (isAttachmentMenuOpen && (window as any).electronAPI?.aiGetOpenWindows) {
+      (window as any).electronAPI.aiGetOpenWindows().then((windows: any[]) => {
+        setOpenWindows(windows.filter(w => w.name && w.name !== 'SideBrowser'));
+      });
+    }
+  }, [isAttachmentMenuOpen]);
+
+  useEffect(() => {
     if ((window as any).electronAPI) {
-      const unsubChunk = (window as any).electronAPI.onAiStreamChunk(({ threadId, chunk }: any) => {
-        setMessages(prev => prev.map(msg => 
-          msg.id === threadId ? { ...msg, content: msg.content + chunk } : msg
-        ));
+      const unsubChunk = (window as any).electronAPI.onAiStreamChunk(({ threadId, chunk }: { threadId: string, chunk: string }) => {
+        setMessages(prev => prev.map(m => {
+          if (m.id === threadId) {
+            let newRaw = (m.rawContent || m.content || '') + chunk;
+            let content = newRaw;
+            let innerThought = '';
+            
+            const thinkStart = newRaw.indexOf('<think>');
+            const thinkEnd = newRaw.indexOf('</think>');
+            
+            if (thinkStart !== -1) {
+               if (thinkEnd !== -1) {
+                  innerThought = newRaw.substring(thinkStart + 7, thinkEnd).trim();
+                  content = newRaw.substring(0, thinkStart) + newRaw.substring(thinkEnd + 8);
+               } else {
+                  innerThought = newRaw.substring(thinkStart + 7).trim();
+                  content = newRaw.substring(0, thinkStart);
+               }
+            }
+
+            return { ...m, rawContent: newRaw, content, innerThought };
+          }
+          return m;
+        }));
       });
       const unsubError = (window as any).electronAPI.onAiStreamError(({ threadId, error }: any) => {
         setMessages(prev => prev.map(msg => 
@@ -71,44 +103,24 @@ export default function Assistant() {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    // Remove markdown symbols for better speech
     const cleanText = text.replace(/[*_#`]/g, '');
     utterance.text = cleanText;
     window.speechSynthesis.speak(utterance);
   };
 
-  const toggleListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser environment.');
-      return;
-    }
+  const toggleMic = async () => {
+    if (isListening) return;
+    setIsListening(true);
     
-    if (isListening) {
+    if ((window as any).electronAPI) {
+      const success = await (window as any).electronAPI.aiTriggerDictation();
+      if (!success) {
+        console.warn('Dictation trigger failed or unsupported');
+      }
+      setTimeout(() => setIsListening(false), 3000); // Reset visual state after 3s
+    } else {
       setIsListening(false);
-      return; // The onend handler will catch it when it stops
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = navigator.language || 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => setIsListening(true);
-    
-    recognition.onresult = (event: any) => {
-      const speechResult = event.results[0][0].transcript;
-      setInput(prev => prev + (prev ? ' ' : '') + speechResult);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => setIsListening(false);
-    
-    recognition.start();
   };
 
   const handleSend = () => {
@@ -150,13 +162,23 @@ export default function Assistant() {
   const handleCaptureScreen = async () => {
     setIsAttachmentMenuOpen(false);
     if ((window as any).electronAPI) {
-      // Minimize or hide window briefly if needed? (optional)
       const base64Image = await (window as any).electronAPI.aiCaptureScreenRegion();
       if (base64Image) {
         setAttachedImage(base64Image);
       }
     }
   };
+
+  const handleAttachFile = async () => {
+    setIsAttachmentMenuOpen(false);
+    if ((window as any).electronAPI) {
+      const base64Image = await (window as any).electronAPI.aiAttachFile();
+      if (base64Image) {
+        setAttachedImage(base64Image);
+      }
+    }
+  };
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -174,7 +196,6 @@ export default function Assistant() {
 
   return (
     <div className="flex h-full w-full bg-[var(--theme-content-bg)] overflow-hidden relative" style={{ WebkitAppRegion: 'no-drag' } as any}>
-      {/* Sidebar Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -226,9 +247,7 @@ export default function Assistant() {
         )}
       </AnimatePresence>
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Header */}
         <div className="h-14 border-b border-black/10 dark:border-white/10 flex items-center px-4 gap-3 shrink-0 backdrop-blur-md bg-white/30 dark:bg-black/30 z-10">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -253,7 +272,6 @@ export default function Assistant() {
           </div>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-6 scroll-smooth pb-10">
           {messages.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center opacity-40 text-[var(--theme-text)] gap-4">
@@ -289,7 +307,27 @@ export default function Assistant() {
                   {msg.role === 'user' ? (
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                   ) : (
-                    <div className="markdown-body text-sm">
+                    <div className="flex-1 w-full max-w-full min-w-0">
+                      {msg.innerThought && (
+                        <details className="mb-3 text-xs bg-black/5 dark:bg-white/5 rounded-md border border-black/5 dark:border-white/5 overflow-hidden">
+                          <summary className="px-3 py-2 cursor-pointer font-medium text-[var(--theme-text)] opacity-70 hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-active)] animate-pulse"></span>
+                            Reasoning process
+                          </summary>
+                          <div className="p-3 pt-0 text-[var(--theme-text)] opacity-80 whitespace-pre-wrap font-mono leading-relaxed">
+                            {msg.innerThought}
+                          </div>
+                        </details>
+                      )}
+                      {msg.content === '' && !msg.innerThought && (
+                         <div className="flex items-center gap-2 py-1">
+                            <div className="flex space-x-1">
+                              <div className="w-1.5 h-1.5 bg-[var(--theme-active)] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                              <div className="w-1.5 h-1.5 bg-[var(--theme-active)] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                              <div className="w-1.5 h-1.5 bg-[var(--theme-active)] rounded-full animate-bounce"></div>
+                            </div>
+                         </div>
+                      )}
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -350,7 +388,6 @@ export default function Assistant() {
           <div ref={messagesEndRef} className="h-4" />
         </div>
 
-        {/* Input Area */}
         <div className="p-4 bg-transparent border-t border-black/5 dark:border-white/5 backdrop-blur-md shrink-0">
           
           {attachedImage && (
@@ -396,20 +433,33 @@ export default function Assistant() {
                       transition={{ duration: 0.15 }}
                       className="absolute bottom-full left-0 mb-3 w-56 bg-[var(--theme-content-bg)] border border-black/10 dark:border-white/10 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] overflow-hidden z-50 flex flex-col text-sm p-1.5"
                     >
-                      <button className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group" onClick={() => setIsAttachmentMenuOpen(false)}>
-                        <Paperclip size={16} className="opacity-60 group-hover:opacity-100" />
-                        <span className="font-medium">Attach Files</span>
+                      <button className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group" onClick={handleAttachFile}>
+                        <FileText size={16} className="opacity-60 group-hover:opacity-100" />
+                        <span className="font-medium">Attach File</span>
                       </button>
                       
                       <div className="h-px bg-black/10 dark:bg-white/10 my-1 mx-2" />
                       <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--theme-text)] opacity-40 tracking-wider">APPLICATIONS</div>
                       
-                      <button className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group" onClick={() => setIsAttachmentMenuOpen(false)}>
-                        <div className="w-5 h-5 rounded-md bg-[var(--theme-active)] flex items-center justify-center shrink-0">
-                          <Bot size={12} className="text-white" />
-                        </div>
-                        <span className="truncate font-medium">Side Browser</span>
-                      </button>
+                      <div className="max-h-40 overflow-y-auto custom-scrollbar flex flex-col">
+                        {openWindows.map(win => (
+                          <button 
+                            key={win.id}
+                            onClick={() => { setAttachedImage(win.thumbnail); setIsAttachmentMenuOpen(false); }}
+                            className="flex items-center gap-3 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors text-[var(--theme-text)] text-left group"
+                          >
+                            {win.icon ? (
+                              <img src={win.icon} className="w-4 h-4 rounded-sm object-contain" />
+                            ) : (
+                              <AppWindow size={16} className="opacity-60 group-hover:opacity-100 shrink-0" />
+                            )}
+                            <span className="truncate font-medium text-xs">{win.name}</span>
+                          </button>
+                        ))}
+                        {openWindows.length === 0 && (
+                          <div className="px-3 py-2 text-xs opacity-50 text-[var(--theme-text)]">No apps found</div>
+                        )}
+                      </div>
                       
                       <div className="h-px bg-black/10 dark:bg-white/10 my-1 mx-2" />
                       <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--theme-text)] opacity-40 tracking-wider">DISPLAYS</div>
@@ -428,7 +478,7 @@ export default function Assistant() {
               
               <div className="flex items-center gap-1.5">
                 <button 
-                  onClick={toggleListening}
+                  onClick={toggleMic}
                   className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'}`}
                   title={isListening ? "Listening..." : "Voice Input"}
                 >
