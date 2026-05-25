@@ -502,7 +502,13 @@ export default function App() {
         )}
 
         {view === 'assistant' && (
-          <Assistant />
+          <Assistant onNavigate={(url) => {
+            if (url) {
+              let finalUrl = url;
+              if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
+              handleNavigate(finalUrl);
+            }
+          }} />
         )}
 
         <div className={`flex-1 w-full h-full p-0 m-0 bg-transparent ${view === 'browser' ? 'block' : 'hidden'}`}>

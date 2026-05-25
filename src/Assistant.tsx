@@ -28,7 +28,11 @@ interface ChatSession {
   updatedAt: number;
 }
 
-export default function Assistant() {
+interface AssistantProps {
+  onNavigate?: (url: string) => void;
+}
+
+export default function Assistant({ onNavigate }: AssistantProps) {
   const { settings } = useSettings();
   
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -497,6 +501,23 @@ export default function Assistant() {
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
+                        a({ node, className, children, href, ...props }: any) {
+                          return (
+                            <a 
+                              {...props} 
+                              href={href}
+                              className={`${className || ''} text-blue-500 hover:underline cursor-pointer`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (href && onNavigate) {
+                                  onNavigate(href);
+                                }
+                              }}
+                            >
+                              {children}
+                            </a>
+                          )
+                        },
                         code({node, inline, className, children, ...props}: any) {
                           const match = /language-(\w+)/.exec(className || '')
                           return !inline && match ? (
