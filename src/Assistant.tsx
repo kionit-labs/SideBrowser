@@ -609,6 +609,25 @@ export default function Assistant({ onNavigate }: AssistantProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={(e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                  if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          setAttachedImage(event.target.result as string);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                      e.preventDefault();
+                    }
+                  }
+                }
+              }}
               placeholder="Ask me anything... (Press Enter to send)"
               className="w-full bg-transparent text-[var(--theme-text)] p-4 max-h-48 min-h-[56px] resize-none outline-none text-sm placeholder:opacity-50 no-scrollbar rounded-t-2xl"
               rows={1}
