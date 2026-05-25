@@ -454,7 +454,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
               animate={{ opacity: 1, y: 0 }}
               className={`flex gap-4 max-w-[90%] group ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-[var(--theme-active)] text-white' : 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-[var(--theme-active)] text-white' : 'bg-black/5 dark:bg-white/10 text-[var(--theme-active)] border border-black/10 dark:border-white/10 shadow-sm'}`}>
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
               </div>
               
