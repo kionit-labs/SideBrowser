@@ -170,6 +170,12 @@ export default function Assistant() {
 
   const handleReadAloud = (text: string) => {
     if (!('speechSynthesis' in window)) return;
+    
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const cleanText = text.replace(/[*_#`]/g, '');
@@ -366,7 +372,7 @@ export default function Assistant() {
                         <span className="truncate flex-1 pr-12">{session.title}</span>
                       )}
                     </button>
-                    {sessions.length > 1 && editingSessionId !== session.id && (
+                    {editingSessionId !== session.id && (
                       <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${activeSessionId === session.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                         <button 
                           onClick={(e) => {
@@ -378,12 +384,14 @@ export default function Assistant() {
                         >
                           <Pencil size={13} />
                         </button>
-                        <button 
-                          onClick={(e) => deleteSession(session.id, e)}
-                          className={`p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-colors ${activeSessionId === session.id ? 'text-white/70' : 'text-red-400'}`}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {sessions.length > 1 && (
+                          <button 
+                            onClick={(e) => deleteSession(session.id, e)}
+                            className={`p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-colors ${activeSessionId === session.id ? 'text-white/70' : 'text-red-400'}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
