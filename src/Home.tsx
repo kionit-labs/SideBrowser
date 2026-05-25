@@ -102,7 +102,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       {/* Aesthetic Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 z-[1]" />
       
-      <div className="absolute top-0 left-0 right-0 h-8 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag' } as any} />
+      <div className="absolute top-0 left-0 right-0 z-50 pointer-events-none" style={{ WebkitAppRegion: 'drag', height: `${settings.dragRegionHeight || 40}px` } as any} />
       
       <div className="w-full max-w-[700px] px-6 flex flex-col items-center gap-10 relative z-10 -translate-y-8" style={{ WebkitAppRegion: 'no-drag' } as any}>
         

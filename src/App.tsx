@@ -693,9 +693,10 @@ export default function App() {
       {/* Global Drag Handle - Excludes sidebar area (68px) so nav buttons remain clickable */}
       {!isTranslateUIOpen && (
         <div 
-          className="absolute top-0 left-0 h-10 z-[9999] pointer-events-auto" 
+          className="absolute top-0 left-0 z-[9999] pointer-events-auto" 
           style={{ 
             WebkitAppRegion: 'drag', 
+            height: `${settings.dragRegionHeight || 40}px`,
             right: isSidebarHidden ? '0px' : '60px' 
           } as any} 
         />

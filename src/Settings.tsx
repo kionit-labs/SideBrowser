@@ -341,6 +341,42 @@ export default function Settings() {
                   </div>
                 </div>
 
+                <div className="flex flex-col py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('window.dragHeight')}</h3>
+                      <p className="text-[13px] text-zinc-500 mt-1">{t('window.dragHeight.sub')}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                       <span className="text-xs font-mono text-[var(--theme-text)] opacity-60">{settings.dragRegionHeight || 40}px</span>
+                       <div className="flex items-center gap-3">
+                         <button 
+                            onClick={() => updateSetting('dragRegionHeight', Math.max(10, (settings.dragRegionHeight || 40) - 5))}
+                            className="p-1 hover:bg-white/10 rounded transition-colors text-[var(--theme-text)]"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <input 
+                            type="range" 
+                            min="10" 
+                            max="100" 
+                            step="5" 
+                            value={settings.dragRegionHeight || 40} 
+                            onChange={(e) => updateSetting('dragRegionHeight', parseInt(e.target.value))}
+                            className="w-32 accent-[#3b5270] bg-zinc-800 h-1.5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[var(--theme-color)] [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                            style={{ accentColor: 'var(--theme-color)' }}
+                          />
+                          <button 
+                            onClick={() => updateSetting('dragRegionHeight', Math.min(100, (settings.dragRegionHeight || 40) + 5))}
+                            className="p-1 hover:bg-white/10 rounded transition-colors text-[var(--theme-text)]"
+                          >
+                            <Plus size={14} />
+                          </button>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
                 <ToggleItem 
                   label={t('window.dynamicsidebar' as any)} 
                   subtitle={t('window.dynamicsidebar.sub' as any)} 

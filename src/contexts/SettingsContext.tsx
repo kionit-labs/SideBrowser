@@ -25,6 +25,8 @@ const translations = {
     'general.password.sub': 'Automatically fill in login forms when password management is enabled',
     'window.transparency': 'Window Transparency',
     'window.transparency.sub': 'Adjusts the desktop transparency effect behind the UI.',
+    'window.dragHeight': 'Top Drag Region Height',
+    'window.dragHeight.sub': 'Adjust the height of the top area used to drag the window. (Default: 40px)',
     'window.dynamicsidebar': 'Dynamic Sidebar',
     'window.dynamicsidebar.sub': 'Automatically move the sidebar to the inner edge based on snap position',
     'window.alwaysontop': 'Always On Top',
@@ -157,7 +159,9 @@ const translations = {
     'general.password': 'Parola Yöneticisi',
     'general.password.sub': 'Parola yönetimi etkinleştirildiğinde giriş formlarını otomatik olarak doldur',
     'window.transparency': 'Pencere Şeffaflığı',
-    'window.transparency.sub': 'Arayüzün arkasındaki masaüstü şeffaflık efektini ayarlar.',
+    'window.transparency.sub': 'Kullanıcı arayüzünün arkasındaki masaüstü şeffaflık efektini ayarlar.',
+    'window.dragHeight': 'Üst Sürükleme Boşluğu',
+    'window.dragHeight.sub': 'Uygulamayı sürüklemek için üst kısımda bırakılan boşluğun pikselini ayarlayın (Varsayılan: 40px)',
     'window.dynamicsidebar': 'Dinamik Kenar Çubuğu',
     'window.dynamicsidebar.sub': 'Kenar çubuğunu yaslama konumuna göre otomatik olarak iç kenara taşı',
     'window.alwaysontop': 'Her Zaman Üstte',
@@ -459,6 +463,7 @@ export interface SettingsState {
   aiPersistHistory: boolean;
   aiEnabled: boolean;
   aiTtsEnabled: boolean;
+  dragRegionHeight: number;
 }
 
 const defaultSettings: SettingsState = {
@@ -496,6 +501,7 @@ const defaultSettings: SettingsState = {
   aiPersistHistory: true,
   aiEnabled: true,
   aiTtsEnabled: false,
+  dragRegionHeight: 40,
 };
 
 interface SettingsContextType {

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, User, Scissors, Trash2, 
-  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2
+  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2, Pencil
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -43,6 +43,8 @@ export default function Assistant() {
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [openWindows, setOpenWindows] = useState<any[]>([]);
   const [modelStyle, setModelStyle] = useState<'Low' | 'Mid' | 'High'>('Mid');
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load sessions from store on mount
@@ -321,8 +323,10 @@ export default function Assistant() {
                   <div key={session.id} className="relative group">
                     <button 
                       onClick={() => {
-                        setActiveSessionId(session.id);
-                        setIsSidebarOpen(false);
+                        if (editingSessionId !== session.id) {
+                          setActiveSessionId(session.id);
+                          setIsSidebarOpen(false);
+                        }
                       }}
                       className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors ${
                         activeSessionId === session.id 
@@ -331,17 +335,56 @@ export default function Assistant() {
                       }`}
                     >
                       <MessageSquare size={16} />
-                      <span className="truncate flex-1 pr-6">{session.title}</span>
+                      {editingSessionId === session.id ? (
+                        <input
+                          autoFocus
+                          value={editingSessionTitle}
+                          onChange={(e) => setEditingSessionTitle(e.target.value)}
+                          onBlur={() => {
+                            if (editingSessionTitle.trim()) {
+                               setSessions(prev => prev.map(s => s.id === session.id ? { ...s, title: editingSessionTitle.trim() } : s));
+                            }
+                            setEditingSessionId(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                               e.preventDefault();
+                               e.stopPropagation();
+                               if (editingSessionTitle.trim()) {
+                                  setSessions(prev => prev.map(s => s.id === session.id ? { ...s, title: editingSessionTitle.trim() } : s));
+                               }
+                               setEditingSessionId(null);
+                            }
+                            if (e.key === 'Escape') {
+                               setEditingSessionId(null);
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 bg-transparent text-white outline-none border-b border-white/50 px-1"
+                        />
+                      ) : (
+                        <span className="truncate flex-1 pr-12">{session.title}</span>
+                      )}
                     </button>
-                    {sessions.length > 1 && (
-                      <button 
-                        onClick={(e) => deleteSession(session.id, e)}
-                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-all ${
-                          activeSessionId === session.id ? 'text-white/70 opacity-100' : 'text-red-400 opacity-0 group-hover:opacity-100'
-                        }`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                    {sessions.length > 1 && editingSessionId !== session.id && (
+                      <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${activeSessionId === session.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSessionId(session.id);
+                            setEditingSessionTitle(session.title);
+                          }}
+                          className={`p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${activeSessionId === session.id ? 'text-white/70 hover:text-white' : 'text-[var(--theme-text)] opacity-60 hover:opacity-100'}`}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button 
+                          onClick={(e) => deleteSession(session.id, e)}
+                          className={`p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-colors ${activeSessionId === session.id ? 'text-white/70' : 'text-red-400'}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
