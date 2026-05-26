@@ -14,6 +14,8 @@ flowchart TD
     %% File Nodes
     src_App_tsx["src/App.tsx"]
     class src_App_tsx renderer;
+    src_Assistant_tsx["src/Assistant.tsx"]
+    class src_Assistant_tsx renderer;
     src_Browser_tsx["src/Browser.tsx"]
     class src_Browser_tsx renderer;
     src_contexts_SettingsContext_tsx["src/contexts/SettingsContext.tsx"]
@@ -39,8 +41,10 @@ flowchart TD
     src_App_tsx --> src_Browser_tsx
     src_App_tsx --> src_Settings_tsx
     src_App_tsx --> src_Home_tsx
+    src_App_tsx --> src_Assistant_tsx
     src_App_tsx --> src_contexts_SettingsContext_tsx
     src_App_tsx --> src_utils_themes_ts
+    src_Assistant_tsx --> src_contexts_SettingsContext_tsx
     src_Browser_tsx --> src_contexts_SettingsContext_tsx
     src_Home_tsx --> src_contexts_SettingsContext_tsx
     src_main_tsx --> src_contexts_SettingsContext_tsx
@@ -66,5 +70,14 @@ flowchart TD
     electron_preload_ts == "ipc: save-passwords" ==> electron_main_ts
     electron_preload_ts == "ipc: clear-passwords" ==> electron_main_ts
     electron_preload_ts == "ipc: select-directory" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:query-llm" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:query-llm-stream" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:capture-screen-region" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:attach-file" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:capture-app" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:get-open-windows" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:trigger-dictation" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:file-operation" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:execute-automation" ==> electron_main_ts
 ```
 

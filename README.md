@@ -2,9 +2,9 @@
 
 ![SideBrowser Banner](assets/banner.png)
 
-# 🌐 Side Browser
+# 🌐 SideBrowser
 
-**A sleek, edge-snapping side browser panel for Windows.**
+**A sleek, edge-snapping side browser & AI workspace panel for Windows.**
 
 Pin it to the left or right edge of your screen — it slides in when you hover the edge, just like a drawer.
 
@@ -47,12 +47,16 @@ Get the latest version of Side Browser from the [Releases](https://github.com/ki
 
 | Feature | Description |
 |---------|-------------|
+| 🤖 **AI Assistant** | Integrated chatbot supporting Ollama, LM Studio, Gemini, speech TTS, and voice dictation |
+| 📸 **Multimodal Capture** | Grab screen regions or open windows, paste images from clipboard directly to chat |
+| ⚡ **AI Token Wiki** | Token-optimized codebase wiki (`.llmwiki.md`) and dependency graphs for developer-AI pairing |
 | 🧲 **Edge Snapping** | Docks to screen edges, auto-hides when you click away |
 | 🗂️ **Tabbed Browsing** | Multiple sites with icon-based sidebar for instant switching |
 | 🛡️ **Built-in Adblock** | Powered by Ghostery engine for a clean, fast experience |
 | 🔐 **Password Manager** | Securely manage and import credentials via CSV |
 | 🎨 **Theme Engine** | Multiple colors + Dark / Light / System auto-mode |
 | 🪟 **Transparency** | Adjustable window opacity for a premium glass look |
+| ⚙️ **Dead Zone Settings** | Customize top-edge drag margin pixel sizes to prevent overlapping clicks |
 | 📍 **Address Bar** | Choose between Top, Bottom, or Auto-hide URL bar |
 | 📱 **Device Emulation** | Switch between Desktop and Mobile view per tab |
 | 🔇 **Per-Tab Audio** | Mute, reload, and manage audio for each tab individually |
@@ -82,6 +86,9 @@ npm run dev
 
 # Build the project
 npm run build
+
+# Generate dependency/IPC graph
+npm run graphify
 ```
 
 ---
@@ -97,6 +104,7 @@ npm run build
 | 🔷 | **TypeScript 5.9** | Type safety & productivity |
 | 💨 | **Tailwind CSS 4** | Sleek & customizable styling |
 | 🎞️ | **Framer Motion** | Physics-based animations |
+| 🤖 | **AI Streaming Engine** | Ollama, LM Studio & Gemini APIs |
 | 🎯 | **Lucide React** | Premium icon set |
 | 🛡️ | **Ghostery Adblocker** | Enterprise-grade ad blocking |
 | 💾 | **electron-datastore** | Local preference persistence |
@@ -112,17 +120,22 @@ SideBrowser/
 ├── .github/                 # GitHub Actions (Auto-release workflows)
 ├── assets/                  # Project assets (Banner, Icons)
 ├── electron/                # Main Process (Electron)
-│   ├── main.ts              # Windows, Tray, Edge-snapping logic
+│   ├── main.ts              # Windows, Tray, Edge-snapping & AI logic
 │   ├── preload.ts           # IPC Bridge (Main ↔ Renderer)
 │   └── webview-preload.ts   # Webview injection (Theme, adblock)
+├── scripts/                 # Developer tools & helper scripts
+│   └── graphify.js          # Automatic dependency & IPC graph generator
 ├── src/                     # Renderer Process (React + TypeScript)
 │   ├── App.tsx              # Main layout, Sidebar & Tab logic
+│   ├── Assistant.tsx        # AI Assistant interface & chat histories
 │   ├── Browser.tsx          # Webview wrapper & navigation
 │   ├── Home.tsx             # New Tab / Homepage view
 │   ├── Settings.tsx         # User preferences panel
 │   ├── contexts/            # Global state (Settings, Theme)
 │   └── utils/               # Color & styling utilities
 ├── public/                  # Static assets & icons
+├── .llmwiki.md              # Token-efficient AI developer wiki
+├── DEPENDENCY_GRAPH.md      # Auto-generated module import & IPC graph
 ├── LICENSE                  # GNU GPLv3 License
 └── package.json             # Build scripts & dependencies
 ```
