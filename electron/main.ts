@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog, desktopCapturer } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog, desktopCapturer, safeStorage } from 'electron';
 import type { WebContents, Session } from 'electron';
 import { Store } from 'electron-datastore';
 import { Ollama } from 'ollama';
@@ -940,12 +940,53 @@ ipcMain.on('set-always-on-top', (_event, enabled: boolean) => {
   if (store) store.set('alwaysOnTop', enabled);
 });
 
+// Helper functions for OS-level encryption using Electron safeStorage
+function encryptSecret(plainText: string): string {
+  if (!plainText) return '';
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return safeStorage.encryptString(plainText).toString('base64');
+    }
+  } catch (err) {
+    console.error('safeStorage encryption failed:', err);
+  }
+  return plainText;
+}
+
+function decryptSecret(encryptedBase64: string): string {
+  if (!encryptedBase64) return '';
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const buffer = Buffer.from(encryptedBase64, 'base64');
+      return safeStorage.decryptString(buffer);
+    }
+  } catch (err) {
+    // In case the store value is plain text (backward compatibility)
+    return encryptedBase64;
+  }
+  return encryptedBase64;
+}
+
 ipcMain.handle('get-store-value', (_event, key) => {
+  if (key === 'aiApiKey') {
+    const rawVal = store?.get(key);
+    return rawVal ? '••••••••••••••••' : '';
+  }
   return store?.get(key);
 });
 
 ipcMain.on('set-store-value', (_event, key, value) => {
   if (store) {
+    if (key === 'aiApiKey') {
+      if (value === '••••••••••••••••') {
+        // Ignore setting it to the dummy placeholder
+        return;
+      }
+      const encryptedValue = encryptSecret(value);
+      store.set(key, encryptedValue);
+      return;
+    }
+
     store.set(key, value);
     if (key === 'transparency') {
       windowManager.forEach(state => state.win.setOpacity(value));
@@ -967,11 +1008,27 @@ ipcMain.on('set-store-value', (_event, key, value) => {
 ipcMain.handle('get-preload-path', () => path.join(__dirname, 'webview-preload.js'));
 
 ipcMain.handle('get-passwords', () => {
-  return passwordsStore?.get('passwords') || [];
+  const passwords = passwordsStore?.get('passwords') || [];
+  return passwords.map((p: any) => {
+    try {
+      return {
+        ...p,
+        password: decryptSecret(p.password)
+      };
+    } catch (e) {
+      return p;
+    }
+  });
 });
 
 ipcMain.on('save-passwords', (_event, passwords) => {
-  if (passwordsStore) passwordsStore.set('passwords', passwords);
+  if (passwordsStore) {
+    const encryptedPasswords = passwords.map((p: any) => ({
+      ...p,
+      password: encryptSecret(p.password)
+    }));
+    passwordsStore.set('passwords', encryptedPasswords);
+  }
 });
 
 ipcMain.handle('select-directory', async (event) => {
@@ -1007,6 +1064,15 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
       systemPrompt = 'You are an expert analytical assistant. Think step-by-step and explore all possibilities deeply before answering. Provide comprehensive reasoning.';
     }
 
+    // Resolve secure API key if placeholder or missing
+    let finalApiKey = apiKey;
+    if (!finalApiKey || finalApiKey === '••••••••••••••••') {
+      const encryptedBase64 = store?.get('aiApiKey');
+      if (encryptedBase64) {
+        finalApiKey = decryptSecret(encryptedBase64);
+      }
+    }
+
     if (provider === 'Ollama') {
        const ollama = new Ollama({ host: endpoint || 'http://localhost:11434' });
        const messages: any[] = [];
@@ -1026,12 +1092,33 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
           event.reply('ai:query-llm-chunk', { threadId, chunk: part.message.content });
        }
        event.reply('ai:query-llm-done', { threadId });
+    } else if (provider === 'DeepSeek') {
+       const openai = new OpenAI({ baseURL: 'https://api.deepseek.com/v1', apiKey: finalApiKey });
+       const messages: any[] = [];
+       if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+       messages.push({ role: 'user', content: prompt });
+       if (imagesBase64 && imagesBase64.length > 0) {
+          messages[messages.length - 1].content = [
+            { type: "text", text: prompt },
+            ...imagesBase64.map((img: string) => ({ type: "image_url", image_url: { url: img } }))
+          ];
+       }
+       const stream = await openai.chat.completions.create({
+          model: model || 'deepseek-chat',
+          messages: messages,
+          temperature: temperature,
+          stream: true,
+       });
+       for await (const part of stream) {
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '' });
+       }
+       event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'LM Studio' || provider === 'OpenAI' || provider === 'Custom') {
        let baseURL = endpoint;
        if (baseURL && !baseURL.endsWith('/v1') && !baseURL.includes('openai.com')) {
          baseURL = baseURL.replace(/\/$/, '') + '/v1';
        }
-       const openai = new OpenAI({ baseURL: baseURL, apiKey: apiKey || 'not-needed' });
+       const openai = new OpenAI({ baseURL: baseURL, apiKey: finalApiKey || 'not-needed' });
        const messages: any[] = [];
        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
        messages.push({ role: 'user', content: prompt });
@@ -1052,7 +1139,7 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        }
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'Gemini') {
-       const genAI = new GoogleGenerativeAI(apiKey);
+       const genAI = new GoogleGenerativeAI(finalApiKey);
        const genModel = genAI.getGenerativeModel({ 
          model: model || 'gemini-1.5-flash',
          systemInstruction: systemPrompt || undefined,

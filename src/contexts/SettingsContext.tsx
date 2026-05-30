@@ -454,7 +454,7 @@ export interface SettingsState {
   searchEngine: string;
   dynamicSidebar: boolean;
   shortcuts: Shortcut[];
-  aiProvider: 'Ollama' | 'LM Studio' | 'OpenAI' | 'Anthropic' | 'Gemini' | 'Custom';
+  aiProvider: 'Ollama' | 'LM Studio' | 'OpenAI' | 'DeepSeek' | 'Anthropic' | 'Gemini' | 'Custom';
   aiModel: string;
   aiApiKey: string;
   aiEndpoint: string;

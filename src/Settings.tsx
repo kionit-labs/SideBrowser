@@ -560,7 +560,7 @@ export default function Settings() {
 
                 <SelectItem 
                   label={t('ai.provider')} 
-                  options={['Ollama', 'LM Studio', 'OpenAI', 'Anthropic', 'Gemini', 'Custom']} 
+                  options={['Ollama', 'LM Studio', 'OpenAI', 'DeepSeek', 'Anthropic', 'Gemini', 'Custom']} 
                   value={settings.aiProvider} 
                   onChange={(val: any) => updateSetting('aiProvider', val)} 
                 />
@@ -591,7 +591,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {(settings.aiProvider === 'OpenAI' || settings.aiProvider === 'Anthropic' || settings.aiProvider === 'Gemini' || settings.aiProvider === 'Custom') && (
+                {(settings.aiProvider === 'OpenAI' || settings.aiProvider === 'DeepSeek' || settings.aiProvider === 'Anthropic' || settings.aiProvider === 'Gemini' || settings.aiProvider === 'Custom') && (
                   <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
                     <div className="flex items-center justify-between">
                       <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.apikey')}</h3>
