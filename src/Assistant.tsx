@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, User, Scissors, Trash2, 
@@ -37,7 +37,7 @@ interface AssistantProps {
 }
 
 export default function Assistant({ onNavigate }: AssistantProps) {
-  const { settings } = useSettings();
+  const { settings, updateSetting } = useSettings();
   
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
@@ -50,13 +50,15 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [openWindows, setOpenWindows] = useState<any[]>([]);
-  const [modelStyle, setModelStyle] = useState<'Low' | 'Mid' | 'High'>('Mid');
+  const modelStyle = 'Mid';
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // AI assistant detailed metrics state
   const [balance, setBalance] = useState<any>(null);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState<boolean>(false);
 
   const fetchBalance = () => {
     if ((window as any).electronAPI) {
@@ -69,6 +71,31 @@ export default function Assistant({ onNavigate }: AssistantProps) {
         });
     }
   };
+
+  useEffect(() => {
+    if ((window as any).electronAPI) {
+      setIsFetchingModels(true);
+      (window as any).electronAPI.aiGetAvailableModels(settings.aiProvider, settings.aiEndpoint)
+        .then((models: string[]) => {
+          setAvailableModels(models || []);
+          setIsFetchingModels(false);
+        })
+        .catch(() => {
+          setAvailableModels([]);
+          setIsFetchingModels(false);
+        });
+    } else {
+      setAvailableModels([]);
+    }
+  }, [settings.aiProvider, settings.aiEndpoint, settings.aiApiKey]);
+
+  const modelsToRender = useMemo(() => {
+    const list = [...availableModels];
+    if (settings.aiModel && !list.includes(settings.aiModel)) {
+      list.unshift(settings.aiModel);
+    }
+    return list;
+  }, [availableModels, settings.aiModel]);
 
   useEffect(() => {
     fetchBalance();
@@ -481,15 +508,6 @@ export default function Assistant({ onNavigate }: AssistantProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-             {balance && (
-               <div className="text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20 px-2.5 py-1 rounded-full animate-in fade-in duration-200 cursor-default">
-                 {balance.usage !== undefined ? (
-                   `Used: $${balance.usage.toFixed(3)}`
-                 ) : (
-                   `${balance.balance.toFixed(2)} ${balance.currency}`
-                 )}
-               </div>
-             )}
              <button 
                 title="Clear Chat" 
                 onClick={() => setMessages([])}
@@ -687,19 +705,38 @@ export default function Assistant({ onNavigate }: AssistantProps) {
             </div>
           )}
 
-          {messages.length > 0 && (
-            <div className="max-w-4xl mx-auto mb-2.5 flex items-center justify-between text-[10px] text-[var(--theme-text)] opacity-40 px-1 select-none">
-              <span>Context Usage: {getConversationTokens().toLocaleString()} / {getModelContextLimit().toLocaleString()} tokens</span>
-              <div className="w-24 bg-black/10 dark:bg-white/15 h-1.5 rounded-full overflow-hidden ml-2 flex shrink-0">
-                <div 
-                  className={`h-full transition-all duration-300 ${
-                    (getConversationTokens() / getModelContextLimit()) > 0.8 ? 'bg-red-500' : 'bg-[var(--theme-active)]'
-                  }`} 
-                  style={{ width: `${Math.min(100, (getConversationTokens() / getModelContextLimit()) * 100)}%` }} 
-                />
-              </div>
+          <div className="max-w-4xl mx-auto mb-2 flex items-center justify-between text-[10px] text-[var(--theme-text)] px-1 select-none">
+            <div className="flex items-center gap-1.5 opacity-40">
+              {messages.length > 0 ? (
+                <>
+                  <span>Context: {getConversationTokens().toLocaleString()} / {getModelContextLimit().toLocaleString()} tokens</span>
+                  <div className="w-20 bg-black/10 dark:bg-white/15 h-1.5 rounded-full overflow-hidden flex shrink-0">
+                    <div 
+                      className={`h-full transition-all duration-300 ${
+                        (getConversationTokens() / getModelContextLimit()) > 0.8 ? 'bg-red-500' : 'bg-[var(--theme-active)]'
+                      }`} 
+                      style={{ width: `${Math.min(100, (getConversationTokens() / getModelContextLimit()) * 100)}%` }} 
+                    />
+                  </div>
+                </>
+              ) : (
+                <span>Ready to chat</span>
+              )}
             </div>
-          )}
+
+            {balance && (
+              <div className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                <span>Balance:</span>
+                <span>
+                  {balance.usage !== undefined ? (
+                    `Used $${balance.usage.toFixed(3)}`
+                  ) : (
+                    `${balance.balance.toFixed(2)} ${balance.currency}`
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="max-w-4xl mx-auto relative bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-[var(--theme-active)]/50 focus-within:border-[var(--theme-active)] transition-all flex flex-col">
             
@@ -796,22 +833,18 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                 </div>
                 
                 <select
-                  value={modelStyle}
-                  onChange={(e) => setModelStyle(e.target.value as any)}
-                  className="bg-transparent text-[var(--theme-text)] border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors outline-none"
+                  value={settings.aiModel}
+                  onChange={(e) => updateSetting('aiModel', e.target.value)}
+                  className="bg-zinc-800/40 dark:bg-zinc-900/40 text-[var(--theme-text)] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all outline-none max-w-[150px] truncate"
                 >
-                  {['LM Studio', 'Ollama', 'Custom'].includes(settings.aiProvider) ? (
-                     <>
-                       <option value="Low" className="text-black">Low (Speed)</option>
-                       <option value="Mid" className="text-black">Mid (Balanced)</option>
-                       <option value="High" className="text-black">High (Reasoning)</option>
-                     </>
+                  {isFetchingModels ? (
+                    <option className="text-black bg-white" disabled>Fetching...</option>
+                  ) : modelsToRender.length > 0 ? (
+                    modelsToRender.map(m => (
+                      <option key={m} value={m} className="text-black bg-white">{m}</option>
+                    ))
                   ) : (
-                     <>
-                       <option value="Mid" className="text-black">Balanced</option>
-                       <option value="Low" className="text-black">Creative</option>
-                       <option value="High" className="text-black">Precise</option>
-                     </>
+                    <option value={settings.aiModel} className="text-black bg-white">{settings.aiModel || 'No models'}</option>
                   )}
                 </select>
               </div>
