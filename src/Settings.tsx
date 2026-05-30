@@ -25,6 +25,12 @@ export default function Settings() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // New AI state variables for tokens, models and balance
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [balance, setBalance] = useState<any>(null);
+  const [isFetchingModels, setIsFetchingModels] = useState<boolean>(false);
+  const [isFetchingBalance, setIsFetchingBalance] = useState<boolean>(false);
+
   const togglePasswordVisibility = (id: number) => {
     setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -34,6 +40,36 @@ export default function Settings() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  // Fetch models and account balance when settings tab shifts or API credentials change
+  useEffect(() => {
+    if (activeTab === 'AI' && (window as any).electronAPI) {
+      setIsFetchingModels(true);
+      (window as any).electronAPI.aiGetAvailableModels(settings.aiProvider, settings.aiEndpoint)
+        .then((models: string[]) => {
+          setAvailableModels(models || []);
+          setIsFetchingModels(false);
+        })
+        .catch(() => {
+          setAvailableModels([]);
+          setIsFetchingModels(false);
+        });
+
+      setIsFetchingBalance(true);
+      (window as any).electronAPI.aiGetProviderBalance(settings.aiProvider, settings.aiEndpoint)
+        .then((bal: any) => {
+          setBalance(bal);
+          setIsFetchingBalance(false);
+        })
+        .catch(() => {
+          setBalance(null);
+          setIsFetchingBalance(false);
+        });
+    } else {
+      setAvailableModels([]);
+      setBalance(null);
+    }
+  }, [activeTab, settings.aiProvider, settings.aiEndpoint, settings.aiApiKey]);
 
   useEffect(() => {
     if (activeTab === 'Passwords') {
@@ -568,12 +604,30 @@ export default function Settings() {
                 <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.model')}</h3>
-                    <input 
-                      type="text"
-                      value={settings.aiModel}
-                      onChange={(e) => updateSetting('aiModel', e.target.value)}
-                      className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
-                    />
+                    {isFetchingModels ? (
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[var(--theme-accent)] animate-pulse" />
+                        <span className="text-sm text-zinc-400 font-medium">Fetching models...</span>
+                      </div>
+                    ) : availableModels.length > 0 ? (
+                      <select
+                        value={settings.aiModel}
+                        onChange={(e) => updateSetting('aiModel', e.target.value)}
+                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium cursor-pointer"
+                      >
+                        <option value="" className="text-black">Select a model...</option>
+                        {availableModels.map((m) => (
+                          <option key={m} value={m} className="text-black">{m}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input 
+                        type="text"
+                        value={settings.aiModel}
+                        onChange={(e) => updateSetting('aiModel', e.target.value)}
+                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -592,18 +646,52 @@ export default function Settings() {
                 )}
 
                 {(settings.aiProvider === 'OpenAI' || settings.aiProvider === 'DeepSeek' || settings.aiProvider === 'Anthropic' || settings.aiProvider === 'Gemini' || settings.aiProvider === 'Custom') && (
-                  <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.apikey')}</h3>
-                      <input 
-                        type="password"
-                        placeholder="••••••••••••••••"
-                        value={settings.aiApiKey}
-                        onChange={(e) => updateSetting('aiApiKey', e.target.value)}
-                        className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
-                      />
+                  <>
+                    <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">{t('ai.apikey')}</h3>
+                        <input 
+                          type="password"
+                          placeholder="••••••••••••••••"
+                          value={settings.aiApiKey}
+                          onChange={(e) => updateSetting('aiApiKey', e.target.value)}
+                          className="bg-zinc-800/40 border border-zinc-700/30 text-[var(--theme-text)] text-sm rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-[var(--theme-accent)]/50 min-w-[200px] text-right font-medium"
+                        />
+                      </div>
                     </div>
-                  </div>
+                    {isFetchingBalance && (
+                      <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">Remaining Balance</h3>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-semibold text-emerald-500/80">Checking...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!isFetchingBalance && balance && (
+                      <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[15px] font-semibold text-[var(--theme-text)] opacity-90">Remaining Balance</h3>
+                          <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-full">
+                            {balance.usage !== undefined ? (
+                              `Used: $${balance.usage.toFixed(4)} ${balance.limit ? `/ $${balance.limit.toFixed(2)}` : ''}`
+                            ) : (
+                              `${balance.balance.toFixed(2)} ${balance.currency}`
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {['OpenAI', 'Gemini', 'Anthropic'].includes(settings.aiProvider) && (
+                      <div className="flex flex-col py-2 px-4 -mx-4 rounded-lg opacity-50">
+                        <span className="text-[10px] text-[var(--theme-text)]">
+                          * Fatura ve kalan bakiye yönetimi {settings.aiProvider} resmi geliştirici konsolundan yapılmalıdır.
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex flex-col py-4 border-b border-white/5 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-lg">

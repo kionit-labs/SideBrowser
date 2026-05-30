@@ -19,6 +19,10 @@ interface Message {
   innerThought?: string;
   attachedImages?: string[];
   attachedTextName?: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+  };
 }
 
 interface ChatSession {
@@ -50,6 +54,53 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // AI assistant detailed metrics state
+  const [balance, setBalance] = useState<any>(null);
+
+  const fetchBalance = () => {
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.aiGetProviderBalance(settings.aiProvider, settings.aiEndpoint)
+        .then((bal: any) => {
+          setBalance(bal);
+        })
+        .catch(() => {
+          setBalance(null);
+        });
+    }
+  };
+
+  useEffect(() => {
+    fetchBalance();
+  }, [settings.aiProvider, settings.aiEndpoint, settings.aiApiKey]);
+
+  // Context limits helper
+  const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+  const getConversationTokens = () => {
+    let total = 0;
+    messages.forEach(m => {
+      if (m.usage) {
+        total += (m.usage.promptTokens || 0) + (m.usage.completionTokens || 0);
+      } else {
+        total += estimateTokens(m.content);
+      }
+    });
+    return total;
+  };
+
+  const getModelContextLimit = () => {
+    const model = settings.aiModel?.toLowerCase() || '';
+    if (model.includes('gemini-2.0-flash')) return 1048576;
+    if (model.includes('gemini-1.5-pro')) return 2097152;
+    if (model.includes('gemini-1.5-flash')) return 1048576;
+    if (model.includes('gpt-4o-mini')) return 128000;
+    if (model.includes('gpt-4o')) return 128000;
+    if (model.includes('deepseek-chat')) return 64000;
+    if (model.includes('deepseek-reasoner')) return 64000;
+    if (model.includes('claude-3-5-sonnet')) return 200000;
+    if (model.includes('llama3')) return 8192;
+    return 8192; // Default fallback
+  };
 
   // Load sessions from store on mount
   useEffect(() => {
@@ -135,7 +186,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
 
   useEffect(() => {
     if ((window as any).electronAPI) {
-      const unsubChunk = (window as any).electronAPI.onAiStreamChunk(({ threadId, chunk }: { threadId: string, chunk: string }) => {
+      const unsubChunk = (window as any).electronAPI.onAiStreamChunk(({ threadId, chunk, usage }: any) => {
         setMessages(prev => prev.map(m => {
           if (m.id === threadId) {
             let newRaw = (m.rawContent || m.content || '') + chunk;
@@ -155,10 +206,13 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                }
             }
 
-            return { ...m, rawContent: newRaw, content, innerThought };
+            return { ...m, rawContent: newRaw, content, innerThought, usage: usage || m.usage };
           }
           return m;
         }));
+      });
+      const unsubDone = (window as any).electronAPI.onAiStreamDone(() => {
+        fetchBalance();
       });
       const unsubError = (window as any).electronAPI.onAiStreamError(({ threadId, error }: any) => {
         setMessages(prev => prev.map(msg => 
@@ -167,6 +221,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
       });
       return () => {
         if (unsubChunk) unsubChunk();
+        if (unsubDone) unsubDone();
         if (unsubError) unsubError();
       };
     }
@@ -425,13 +480,22 @@ export default function Assistant({ onNavigate }: AssistantProps) {
             <span className="text-[var(--theme-text)] opacity-50 text-[10px] uppercase tracking-wider">{settings.aiProvider || 'Not Configured'} - {settings.aiModel || 'Local'}</span>
           </div>
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+             {balance && (
+               <div className="text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20 px-2.5 py-1 rounded-full animate-in fade-in duration-200 cursor-default">
+                 {balance.usage !== undefined ? (
+                   `Used: $${balance.usage.toFixed(3)}`
+                 ) : (
+                   `${balance.balance.toFixed(2)} ${balance.currency}`
+                 )}
+               </div>
+             )}
              <button 
                 title="Clear Chat" 
                 onClick={() => setMessages([])}
                 className="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-[var(--theme-text)] opacity-70 hover:opacity-100 rounded-md transition-colors"
              >
-               <Trash2 size={18} />
+                <Trash2 size={18} />
              </button>
           </div>
         </div>
@@ -560,22 +624,29 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                 </div>
                 
                 {msg.role === 'assistant' && (
-                  <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Copy">
-                        <Copy size={13} />
-                     </button>
-                     {settings.aiTtsEnabled && (
-                       <button 
-                         onClick={() => handleReadAloud(msg.content)}
-                         className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" 
-                         title="Read Aloud"
-                       >
-                          <Volume2 size={14} />
+                  <div className="flex items-center gap-3 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <div className="flex items-center gap-1">
+                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Copy">
+                          <Copy size={13} />
                        </button>
+                       {settings.aiTtsEnabled && (
+                         <button 
+                           onClick={() => handleReadAloud(msg.content)}
+                           className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" 
+                           title="Read Aloud"
+                         >
+                            <Volume2 size={14} />
+                         </button>
+                       )}
+                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Regenerate">
+                          <RotateCcw size={13} />
+                       </button>
+                     </div>
+                     {msg.usage && (
+                       <span className="text-[10px] text-[var(--theme-text)] opacity-35 font-mono select-none">
+                         Tokens: {msg.usage.promptTokens} in / {msg.usage.completionTokens} out
+                       </span>
                      )}
-                     <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Regenerate">
-                        <RotateCcw size={13} />
-                     </button>
                   </div>
                 )}
               </div>
@@ -613,6 +684,20 @@ export default function Assistant({ onNavigate }: AssistantProps) {
               >
                 <Trash2 size={12} />
               </button>
+            </div>
+          )}
+
+          {messages.length > 0 && (
+            <div className="max-w-4xl mx-auto mb-2.5 flex items-center justify-between text-[10px] text-[var(--theme-text)] opacity-40 px-1 select-none">
+              <span>Context Usage: {getConversationTokens().toLocaleString()} / {getModelContextLimit().toLocaleString()} tokens</span>
+              <div className="w-24 bg-black/10 dark:bg-white/15 h-1.5 rounded-full overflow-hidden ml-2 flex shrink-0">
+                <div 
+                  className={`h-full transition-all duration-300 ${
+                    (getConversationTokens() / getModelContextLimit()) > 0.8 ? 'bg-red-500' : 'bg-[var(--theme-active)]'
+                  }`} 
+                  style={{ width: `${Math.min(100, (getConversationTokens() / getModelContextLimit()) * 100)}%` }} 
+                />
+              </div>
             </div>
           )}
 

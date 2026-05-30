@@ -1089,7 +1089,11 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
           options: { temperature }
        });
        for await (const part of response) {
-          event.reply('ai:query-llm-chunk', { threadId, chunk: part.message.content });
+          const usage = (part as any).prompt_eval_count ? {
+            promptTokens: (part as any).prompt_eval_count,
+            completionTokens: (part as any).eval_count
+          } : undefined;
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.message.content, usage });
        }
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'DeepSeek') {
@@ -1108,9 +1112,14 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
           messages: messages,
           temperature: temperature,
           stream: true,
+          stream_options: { include_usage: true }
        });
        for await (const part of stream) {
-          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '' });
+          const usage = (part as any).usage ? {
+            promptTokens: (part as any).usage.prompt_tokens,
+            completionTokens: (part as any).usage.completion_tokens
+          } : undefined;
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '', usage });
        }
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'LM Studio' || provider === 'OpenAI' || provider === 'Custom') {
@@ -1133,9 +1142,14 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
           messages: messages,
           temperature: temperature,
           stream: true,
+          stream_options: { include_usage: true }
        });
        for await (const part of stream) {
-          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '' });
+          const usage = (part as any).usage ? {
+            promptTokens: (part as any).usage.prompt_tokens,
+            completionTokens: (part as any).usage.completion_tokens
+          } : undefined;
+          event.reply('ai:query-llm-chunk', { threadId, chunk: part.choices[0]?.delta?.content || '', usage });
        }
        event.reply('ai:query-llm-done', { threadId });
     } else if (provider === 'Gemini') {
@@ -1159,6 +1173,24 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
        for await (const chunk of result.stream) {
          event.reply('ai:query-llm-chunk', { threadId, chunk: chunk.text() });
        }
+       
+       // Handle Gemini usage stats at stream end
+       try {
+         const response = await result.response;
+         const usageMetadata = response.usageMetadata;
+         if (usageMetadata) {
+           event.reply('ai:query-llm-chunk', { 
+             threadId, 
+             chunk: '', 
+             usage: {
+               promptTokens: usageMetadata.promptTokenCount,
+               completionTokens: usageMetadata.candidatesTokenCount
+             } 
+           });
+         }
+       } catch (err) {
+         console.error('Failed to get Gemini usage metadata:', err);
+       }
        event.reply('ai:query-llm-done', { threadId });
     } else {
        event.reply('ai:query-llm-error', { threadId, error: 'Unsupported Provider' });
@@ -1166,6 +1198,115 @@ ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, mo
   } catch (err: any) {
     event.reply('ai:query-llm-error', { threadId, error: err.message });
   }
+});
+
+ipcMain.handle('ai:get-available-models', async (_event, provider, endpoint, apiKey) => {
+  try {
+    let finalApiKey = apiKey;
+    if (!finalApiKey || finalApiKey === '••••••••••••••••') {
+      const encryptedBase64 = store?.get('aiApiKey');
+      if (encryptedBase64) {
+        finalApiKey = decryptSecret(encryptedBase64);
+      }
+    }
+
+    if (provider === 'Ollama') {
+      const host = endpoint || 'http://localhost:11434';
+      const res = await fetch(`${host}/api/tags`);
+      if (res.ok) {
+        const data = await res.json() as any;
+        return data.models?.map((m: any) => m.name) || [];
+      }
+    } else if (provider === 'LM Studio') {
+      const host = endpoint || 'http://localhost:1234';
+      const res = await fetch(`${host}/v1/models`);
+      if (res.ok) {
+        const data = await res.json() as any;
+        return data.data?.map((m: any) => m.id) || [];
+      }
+    } else if (provider === 'DeepSeek') {
+      const res = await fetch('https://api.deepseek.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${finalApiKey}` }
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        return data.data?.map((m: any) => m.id) || [];
+      }
+    } else if (provider === 'OpenAI') {
+      const res = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${finalApiKey}` }
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        return data.data?.map((m: any) => m.id) || [];
+      }
+    } else if (provider === 'Custom') {
+      let host = endpoint;
+      if (host && !host.endsWith('/v1') && !host.includes('openai.com')) {
+        host = host.replace(/\/$/, '') + '/v1';
+      }
+      const res = await fetch(`${host}/models`, {
+        headers: finalApiKey ? { 'Authorization': `Bearer ${finalApiKey}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        return data.data?.map((m: any) => m.id) || [];
+      }
+    } else if (provider === 'Gemini') {
+      return ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+    }
+  } catch (err) {
+    console.error('Failed to fetch available models:', err);
+  }
+  return [];
+});
+
+ipcMain.handle('ai:get-provider-balance', async (_event, provider, endpoint, apiKey) => {
+  try {
+    let finalApiKey = apiKey;
+    if (!finalApiKey || finalApiKey === '••••••••••••••••') {
+      const encryptedBase64 = store?.get('aiApiKey');
+      if (encryptedBase64) {
+        finalApiKey = decryptSecret(encryptedBase64);
+      }
+    }
+    if (!finalApiKey) return null;
+
+    if (provider === 'DeepSeek') {
+      const res = await fetch('https://api.deepseek.com/user/balance', {
+        headers: { 'Authorization': `Bearer ${finalApiKey}` }
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        if (data && data.balance_infos && data.balance_infos.length > 0) {
+          const info = data.balance_infos[0];
+          return {
+            currency: info.currency,
+            balance: parseFloat(info.total_balance),
+            toppedUp: parseFloat(info.topped_up_balance)
+          };
+        }
+      }
+    } else if (provider === 'Custom' && (endpoint?.includes('openrouter.ai') || false)) {
+      const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+        headers: { 'Authorization': `Bearer ${finalApiKey}` }
+      });
+      if (res.ok) {
+        const result = await res.json() as any;
+        if (result && result.data) {
+          const d = result.data;
+          return {
+            currency: 'USD',
+            usage: d.usage || 0,
+            limit: d.limit
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch provider balance:', err);
+  }
+  return null;
 });
 
 ipcMain.handle('ai:capture-screen-region', async (event) => {

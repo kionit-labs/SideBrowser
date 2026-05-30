@@ -79,5 +79,7 @@ flowchart TD
     electron_preload_ts == "ipc: ai:trigger-dictation" ==> electron_main_ts
     electron_preload_ts == "ipc: ai:file-operation" ==> electron_main_ts
     electron_preload_ts == "ipc: ai:execute-automation" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:get-available-models" ==> electron_main_ts
+    electron_preload_ts == "ipc: ai:get-provider-balance" ==> electron_main_ts
 ```
 

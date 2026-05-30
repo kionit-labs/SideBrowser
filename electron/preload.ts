@@ -32,7 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiQueryLLMStream: (prompt: string, threadId: string, provider: string, model: string, endpoint: string, apiKey: string, imagesBase64?: string[], modelStyle?: string) => {
     ipcRenderer.send('ai:query-llm-stream', { prompt, threadId, provider, model, endpoint, apiKey, imagesBase64, modelStyle });
   },
-  onAiStreamChunk: (callback: (data: { threadId: string, chunk: string }) => void) => {
+  onAiStreamChunk: (callback: (data: { threadId: string, chunk: string, usage?: { promptTokens: number, completionTokens: number } }) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('ai:query-llm-chunk', handler);
     return () => ipcRenderer.off('ai:query-llm-chunk', handler);
@@ -54,4 +54,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiTriggerDictation: () => ipcRenderer.invoke('ai:trigger-dictation'),
   aiFileOperation: (action: string, targetPath: string, content?: string) => ipcRenderer.invoke('ai:file-operation', action, targetPath, content),
   aiExecuteAutomation: (command: any) => ipcRenderer.invoke('ai:execute-automation', command),
+  aiGetAvailableModels: (provider: string, endpoint: string) => ipcRenderer.invoke('ai:get-available-models', provider, endpoint),
+  aiGetProviderBalance: (provider: string, endpoint: string) => ipcRenderer.invoke('ai:get-provider-balance', provider, endpoint),
 });
