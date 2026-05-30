@@ -59,6 +59,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const [balance, setBalance] = useState<any>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState<boolean>(false);
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
 
   const fetchBalance = () => {
     if ((window as any).electronAPI) {
@@ -115,18 +116,123 @@ export default function Assistant({ onNavigate }: AssistantProps) {
     return total;
   };
 
+  const compressConversationContext = async (currentMessages: Message[]): Promise<Message[]> => {
+    const limit = getModelContextLimit();
+    let total = 0;
+    currentMessages.forEach(m => {
+      if (m.usage) {
+        total += (m.usage.promptTokens || 0) + (m.usage.completionTokens || 0);
+      } else {
+        total += estimateTokens(m.content);
+      }
+    });
+
+    if (total < limit * 0.85 || currentMessages.length < 6) {
+      return currentMessages;
+    }
+
+    setIsCompressing(true);
+    try {
+      const systemMessages = currentMessages.filter(m => m.role === 'system');
+      const nonSystemMessages = currentMessages.filter(m => m.role !== 'system');
+      const firstUserIndex = nonSystemMessages.findIndex(m => m.role === 'user');
+      
+      let protectedLead: Message[] = [];
+      let startCompressIndex = 0;
+
+      if (firstUserIndex !== -1) {
+        protectedLead.push(nonSystemMessages[firstUserIndex]);
+        startCompressIndex = firstUserIndex + 1;
+        if (nonSystemMessages[firstUserIndex + 1]?.role === 'assistant') {
+          protectedLead.push(nonSystemMessages[firstUserIndex + 1]);
+          startCompressIndex = firstUserIndex + 2;
+        }
+      }
+
+      const endCompressIndex = nonSystemMessages.length - 4;
+      
+      if (startCompressIndex < endCompressIndex) {
+        const messagesToCompress = nonSystemMessages.slice(startCompressIndex, endCompressIndex);
+        const preservedTail = nonSystemMessages.slice(endCompressIndex);
+
+        const messagesText = messagesToCompress
+          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n\n');
+
+        const summaryPrompt = `Please summarize the key topics discussed, technical decisions, and status of the following intermediate part of our conversation in under 150 words. Do not lose critical code details or final objectives:\n\n${messagesText}`;
+
+        if ((window as any).electronAPI) {
+          const summaryText = await (window as any).electronAPI.aiQueryLLM(summaryPrompt, 'summary-thread');
+          
+          if (summaryText && !summaryText.startsWith('Error:')) {
+            const summaryMessage: Message = {
+              id: `summary-${Date.now()}`,
+              role: 'system',
+              content: `[Conversation History Summary: ${summaryText.trim()}]`,
+              timestamp: Date.now()
+            };
+
+            const newMessages = [
+              ...systemMessages,
+              ...protectedLead,
+              summaryMessage,
+              ...preservedTail
+            ];
+
+            setIsCompressing(false);
+            return newMessages;
+          }
+        }
+      }
+
+      if (startCompressIndex < endCompressIndex) {
+        const preservedTail = nonSystemMessages.slice(startCompressIndex + 2);
+        const newMessages = [
+          ...systemMessages,
+          ...protectedLead,
+          ...preservedTail
+        ];
+        setIsCompressing(false);
+        return newMessages;
+      }
+    } catch (err) {
+      console.error('Failed to compress conversation context:', err);
+    }
+    
+    setIsCompressing(false);
+    return currentMessages;
+  };
+
   const getModelContextLimit = () => {
     const model = settings.aiModel?.toLowerCase() || '';
-    if (model.includes('gemini-2.0-flash')) return 1048576;
-    if (model.includes('gemini-1.5-pro')) return 2097152;
-    if (model.includes('gemini-1.5-flash')) return 1048576;
-    if (model.includes('gpt-4o-mini')) return 128000;
-    if (model.includes('gpt-4o')) return 128000;
-    if (model.includes('deepseek-chat')) return 64000;
-    if (model.includes('deepseek-reasoner')) return 64000;
-    if (model.includes('claude-3-5-sonnet')) return 200000;
-    if (model.includes('llama3')) return 8192;
-    return 8192; // Default fallback
+    
+    // Gemini
+    if (model.includes('gemini-1.5-pro') || model.includes('gemini-2.0-pro')) return 2097152;
+    if (model.includes('gemini')) return 1048576;
+    
+    // Claude
+    if (model.includes('claude-3')) return 200000;
+    
+    // OpenAI / GPT-4 / o1 / o3
+    if (model.includes('gpt-4') || model.includes('gpt-3.5') || model.includes('o1-') || model.includes('o3-')) return 128000;
+    
+    // DeepSeek
+    if (model.includes('deepseek')) return 128000;
+    
+    // Meta Llama 3.1, 3.2, 3.3
+    if (model.includes('llama-3.1') || model.includes('llama-3.2') || model.includes('llama-3.3')) return 128000;
+    if (model.includes('llama3') || model.includes('llama-3')) return 8192;
+    
+    // Qwen 2.5 / Mistral Nemo / Phi 3
+    if (model.includes('qwen-2.5') || model.includes('qwen2.5')) return 128000;
+    if (model.includes('mistral') || model.includes('mixtral')) return 32768;
+    if (model.includes('phi-3') || model.includes('phi3')) return 128000;
+    
+    // Fallbacks
+    if (settings.aiProvider === 'Ollama' || settings.aiProvider === 'LM Studio') {
+      return 8192; // Local models default
+    }
+    return 128000; // Cloud providers API default
   };
 
   // Load sessions from store on mount
@@ -284,10 +390,17 @@ export default function Assistant({ onNavigate }: AssistantProps) {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() && attachedImages.length === 0 && !attachedText) return;
 
-    if (messages.length === 0) {
+    let currentMessages = [...messages];
+    const compressed = await compressConversationContext(currentMessages);
+    const wasCompressed = compressed !== currentMessages;
+    if (wasCompressed) {
+      currentMessages = compressed;
+    }
+
+    if (messages.length === 0 && !wasCompressed) {
       setSessions(prev => prev.map(s => 
         s.id === activeSessionId ? { ...s, title: input.substring(0, 25) + (input.length > 25 ? '...' : '') } : s
       ));
@@ -307,22 +420,21 @@ export default function Assistant({ onNavigate }: AssistantProps) {
       timestamp: Date.now()
     };
     
-    setMessages(prev => [...prev, userMessage]);
-    setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMessage], updatedAt: Date.now() } : s));
-    
     const sentImages = [...attachedImages];
-    
     setInput('');
     setAttachedImages([]);
     setAttachedText(null);
     
     const aiMessageId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, {
+    const assistantPlaceholder: Message = {
       id: aiMessageId,
       role: 'assistant',
       content: '',
       timestamp: Date.now()
-    }]);
+    };
+
+    const nextMessages = [...currentMessages, userMessage, assistantPlaceholder];
+    setMessages(nextMessages);
 
     if ((window as any).electronAPI) {
       (window as any).electronAPI.aiQueryLLMStream(
@@ -707,7 +819,12 @@ export default function Assistant({ onNavigate }: AssistantProps) {
 
           <div className="max-w-4xl mx-auto mb-2 flex items-center justify-between text-[10px] text-[var(--theme-text)] px-1 select-none">
             <div className="flex items-center gap-1.5 opacity-40">
-              {messages.length > 0 ? (
+              {isCompressing ? (
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-active)] animate-pulse" />
+                  <span className="text-[10px] text-zinc-400 font-semibold">Optimizing chat memory...</span>
+                </div>
+              ) : messages.length > 0 ? (
                 <>
                   <span>Context: {getConversationTokens().toLocaleString()} / {getModelContextLimit().toLocaleString()} tokens</span>
                   <div className="w-20 bg-black/10 dark:bg-white/15 h-1.5 rounded-full overflow-hidden flex shrink-0">

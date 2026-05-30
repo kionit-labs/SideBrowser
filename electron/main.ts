@@ -1047,9 +1047,57 @@ ipcMain.handle('select-directory', async (event) => {
 // AI Assistant IPC Handlers
 // ═══════════════════════════════════════════════════
 
-ipcMain.handle('ai:query-llm', async (_event, prompt: string, threadId: string, _imageBase64?: string) => {
-  console.log('Received AI query:', prompt, 'thread:', threadId);
-  return `Echo from backend: ${prompt}`;
+ipcMain.handle('ai:query-llm', async (_event, prompt: string, _threadId: string, _imageBase64?: string) => {
+  try {
+    const provider = store?.get('aiProvider') || 'Ollama';
+    const model = store?.get('aiModel') || '';
+    const endpoint = store?.get('aiEndpoint') || '';
+    const encryptedKey = store?.get('aiApiKey');
+    let finalApiKey = '';
+    if (encryptedKey) {
+      finalApiKey = decryptSecret(encryptedKey);
+    }
+
+    if (provider === 'Ollama') {
+      const ollama = new Ollama({ host: endpoint || 'http://localhost:11434' });
+      const response = await ollama.chat({
+        model: model || 'llama3',
+        messages: [{ role: 'user', content: prompt }],
+        stream: false
+      });
+      return response.message.content;
+    } else if (provider === 'DeepSeek') {
+      const openai = new OpenAI({ baseURL: 'https://api.deepseek.com/v1', apiKey: finalApiKey });
+      const response = await openai.chat.completions.create({
+        model: model || 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        stream: false
+      });
+      return response.choices[0]?.message?.content || '';
+    } else if (provider === 'LM Studio' || provider === 'OpenAI' || provider === 'Custom') {
+      let baseURL = endpoint;
+      if (baseURL && !baseURL.endsWith('/v1') && !baseURL.includes('openai.com')) {
+        baseURL = baseURL.replace(/\/$/, '') + '/v1';
+      }
+      const openai = new OpenAI({ baseURL: baseURL, apiKey: finalApiKey || 'not-needed' });
+      const response = await openai.chat.completions.create({
+        model: model || 'local-model',
+        messages: [{ role: 'user', content: prompt }],
+        stream: false
+      });
+      return response.choices[0]?.message?.content || '';
+    } else if (provider === 'Gemini') {
+      const genAI = new GoogleGenerativeAI(finalApiKey);
+      const genModel = genAI.getGenerativeModel({ model: model || 'gemini-1.5-flash' });
+      const result = await genModel.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    }
+  } catch (err: any) {
+    console.error('ai:query-llm non-streaming failed:', err);
+    return `Error: ${err.message}`;
+  }
+  return '';
 });
 
 ipcMain.on('ai:query-llm-stream', async (event, { prompt, threadId, provider, model, endpoint, apiKey, imagesBase64, modelStyle }) => {
