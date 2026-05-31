@@ -85,6 +85,11 @@ export default function App() {
   const [contextMenuTabId, setContextMenuTabId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right?: number; left?: number }>({ top: 0, right: 0 });
 
+  // Persistent AI Assistant prompt and attachments draft states
+  const [assistantAttachedImages, setAssistantAttachedImages] = useState<string[]>([]);
+  const [assistantAttachedText, setAssistantAttachedText] = useState<{name: string, content: string} | null>(null);
+  const [assistantInput, setAssistantInput] = useState<string>('');
+
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [isAutoEdgeSnapping, setIsAutoEdgeSnapping] = useState(true);
   const [isGlobalMuted, setIsGlobalMuted] = useState(false);
@@ -502,13 +507,21 @@ export default function App() {
         )}
 
         {view === 'assistant' && (
-          <Assistant onNavigate={(url) => {
-            if (url) {
-              let finalUrl = url;
-              if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
-              handleNavigate(finalUrl);
-            }
-          }} />
+          <Assistant 
+            onNavigate={(url) => {
+              if (url) {
+                let finalUrl = url;
+                if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
+                handleNavigate(finalUrl);
+              }
+            }} 
+            attachedImages={assistantAttachedImages}
+            setAttachedImages={setAssistantAttachedImages}
+            attachedText={assistantAttachedText}
+            setAttachedText={setAssistantAttachedText}
+            input={assistantInput}
+            setInput={setAssistantInput}
+          />
         )}
 
         <div className={`flex-1 w-full h-full p-0 m-0 bg-transparent ${view === 'browser' ? 'block' : 'hidden'}`}>

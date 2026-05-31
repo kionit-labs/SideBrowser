@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Bot, User, Scissors, Trash2, 
+  Bot, User, Scissors, Trash2, X,
   PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2, Pencil
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -34,18 +34,33 @@ interface ChatSession {
 
 interface AssistantProps {
   onNavigate?: (url: string) => void;
+  attachedImages?: string[];
+  setAttachedImages?: React.Dispatch<React.SetStateAction<string[]>>;
+  attachedText?: {name: string, content: string} | null;
+  setAttachedText?: React.Dispatch<React.SetStateAction<{name: string, content: string} | null>>;
+  input?: string;
+  setInput?: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export default function Assistant({ onNavigate }: AssistantProps) {
+export default function Assistant(props: AssistantProps) {
+  const { onNavigate } = props;
   const { settings, updateSetting } = useSettings();
   
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   
-  const [input, setInput] = useState('');
-  const [attachedImages, setAttachedImages] = useState<string[]>([]);
-  const [attachedText, setAttachedText] = useState<{name: string, content: string} | null>(null);
+  const [localInput, setLocalInput] = useState('');
+  const input = props.input ?? localInput;
+  const setInput = props.setInput ?? setLocalInput;
+
+  const [localAttachedImages, setLocalAttachedImages] = useState<string[]>([]);
+  const attachedImages = props.attachedImages ?? localAttachedImages;
+  const setAttachedImages = props.setAttachedImages ?? setLocalAttachedImages;
+
+  const [localAttachedText, setLocalAttachedText] = useState<{name: string, content: string} | null>(null);
+  const attachedText = props.attachedText ?? localAttachedText;
+  const setAttachedText = props.setAttachedText ?? setLocalAttachedText;
   const [isListening, setIsListening] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
@@ -60,6 +75,7 @@ export default function Assistant({ onNavigate }: AssistantProps) {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState<boolean>(false);
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fetchBalance = () => {
     if ((window as any).electronAPI) {
@@ -489,7 +505,8 @@ export default function Assistant({ onNavigate }: AssistantProps) {
 
 
   return (
-    <div className="flex h-full w-full bg-[var(--theme-content-bg)] overflow-hidden relative" style={{ WebkitAppRegion: 'no-drag' } as any}>
+    <>
+      <div className="flex h-full w-full bg-[var(--theme-content-bg)] overflow-hidden relative" style={{ WebkitAppRegion: 'no-drag' } as any}>
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -666,9 +683,15 @@ export default function Assistant({ onNavigate }: AssistantProps) {
                     <div className="flex flex-col gap-2">
                       {msg.attachedImages && msg.attachedImages.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {msg.attachedImages.map((img, idx) => (
-                            <img key={idx} src={img} alt={`Attachment ${idx}`} className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-black/10 dark:bg-white/10" />
-                          ))}
+                           {msg.attachedImages.map((img, idx) => (
+                             <img 
+                               key={idx} 
+                               src={img} 
+                               alt={`Attachment ${idx}`} 
+                               onClick={() => setPreviewImage(img)}
+                               className="max-w-[200px] max-h-[200px] rounded-lg object-contain bg-black/10 dark:bg-white/10 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                             />
+                           ))}
                         </div>
                       )}
                       {msg.attachedTextName && (
@@ -791,7 +814,12 @@ export default function Assistant({ onNavigate }: AssistantProps) {
             <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
               {attachedImages.map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img src={img} alt={`Attached ${idx}`} className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm" />
+                  <img 
+                    src={img} 
+                    alt={`Attached ${idx}`} 
+                    onClick={() => setPreviewImage(img)}
+                    className="h-20 w-auto rounded-lg border border-black/10 dark:border-white/10 shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity" 
+                  />
                   <button 
                     onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
@@ -990,5 +1018,35 @@ export default function Assistant({ onNavigate }: AssistantProps) {
         </div>
       </div>
     </div>
+
+    {/* Screenshot Zoom Preview Modal */}
+    <AnimatePresence>
+      {previewImage && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-[101] bg-black/85 flex items-center justify-center p-6 cursor-zoom-out backdrop-blur-sm"
+        >
+          <button
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            onClick={() => setPreviewImage(null)}
+          >
+            <X size={24} />
+          </button>
+          <motion.img
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95 }}
+            src={previewImage}
+            alt="Screenshot Zoom Preview"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </>
   );
 }
