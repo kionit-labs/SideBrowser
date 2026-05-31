@@ -1558,7 +1558,11 @@ ipcMain.handle('ai:capture-app', async (event) => {
 
 ipcMain.handle('ai:get-open-windows', async () => {
   try {
-    const sources = await desktopCapturer.getSources({ types: ['window'], fetchWindowIcons: true });
+    const sources = await desktopCapturer.getSources({ 
+      types: ['window'], 
+      fetchWindowIcons: true,
+      thumbnailSize: { width: 1920, height: 1080 }
+    });
     return sources.map(s => ({
       id: s.id,
       name: s.name,

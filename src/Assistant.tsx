@@ -1041,7 +1041,7 @@ export default function Assistant(props: AssistantProps) {
             exit={{ scale: 0.95 }}
             src={previewImage}
             alt="Screenshot Zoom Preview"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+            className="w-[calc(100vw-3rem)] max-w-4xl max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
             onClick={(e) => e.stopPropagation()}
           />
         </motion.div>
