@@ -28,10 +28,17 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build and Publish
+      - name: Build and Package
         run: |
           npm run build
           npm run rebuild
-          npx electron-builder -p always
+          npx electron-builder -p never
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*/*.exe
+            release/*/*.blockmap
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
