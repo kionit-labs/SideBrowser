@@ -1,6 +1,6 @@
 {
   "name": "side-browser",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A sleek, slide-out side browser panel for Windows. Built with Electron, React, and TypeScript.",
   "productName": "Side Browser",
   "license": "GPL-3.0-or-later",
@@ -65,7 +65,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}.${ext}"
     }
   },
   "dependencies": {
