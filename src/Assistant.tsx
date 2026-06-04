@@ -2,13 +2,90 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bot, User, Scissors, Trash2, X,
-  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2, Pencil
+  PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Copy, ArrowUp, Mic, RotateCcw, FileText, AppWindow, Volume2, Pencil, Check
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { useSettings } from './contexts/SettingsContext';
+
+interface CodeBlockProps {
+  language: string;
+  value: string;
+}
+
+function CodeBlock({ language, value }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      if ((window as any).electronAPI && (window as any).electronAPI.copyText) {
+        await (window as any).electronAPI.copyText(value);
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  return (
+    <div className="rounded-lg overflow-hidden my-3 border border-black/10 dark:border-white/10 shadow-sm">
+      <div className="bg-[#2d2d2d] px-3 py-1.5 flex justify-between items-center text-xs text-zinc-400 select-none">
+        <span>{language}</span>
+        <button 
+          className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer" 
+          onClick={handleCopy}
+        >
+          {copied ? (
+            <>
+              <Check size={14} className="text-green-400 animate-in fade-in zoom-in duration-200" />
+              <span className="text-green-400 text-[10px] font-medium">Copied!</span>
+            </>
+          ) : (
+            <Copy size={14} />
+          )}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus as any}
+        language={language}
+        PreTag="div"
+        wrapLongLines={true}
+        customStyle={{ 
+          margin: 0, 
+          borderRadius: 0, 
+          fontSize: '13px',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          background: '#1e1e1e'
+        }}
+        codeTagProps={{
+          style: {
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
+          }
+        }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
 
 interface Message {
   id: string;
@@ -66,6 +143,7 @@ export default function Assistant(props: AssistantProps) {
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [openWindows, setOpenWindows] = useState<any[]>([]);
   const modelStyle = 'Mid';
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -466,6 +544,64 @@ export default function Assistant(props: AssistantProps) {
     }
   };
 
+  const handleMessageCopy = async (msgId: string, content: string) => {
+    try {
+      if ((window as any).electronAPI && (window as any).electronAPI.copyText) {
+        await (window as any).electronAPI.copyText(content);
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(content);
+      }
+      setCopiedMessageId(msgId);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy message:", err);
+    }
+  };
+
+  const handleRegenerate = async (msgId: string) => {
+    const msgIdx = messages.findIndex(m => m.id === msgId);
+    if (msgIdx === -1) return;
+    
+    // Find the user message before this assistant message
+    let userMsg: Message | null = null;
+    for (let i = msgIdx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMsg = messages[i];
+        break;
+      }
+    }
+    if (!userMsg) return;
+
+    // Remove the assistant message and all messages after it
+    const nextMessages = messages.slice(0, msgIdx);
+    
+    // Create new assistant placeholder
+    const aiMessageId = Date.now().toString();
+    const assistantPlaceholder: Message = {
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now()
+    };
+    
+    setMessages([...nextMessages, assistantPlaceholder]);
+    
+    let finalPrompt = userMsg.content;
+    
+    if ((window as any).electronAPI) {
+      (window as any).electronAPI.aiQueryLLMStream(
+         finalPrompt, 
+         aiMessageId, 
+         settings.aiProvider, 
+         settings.aiModel, 
+         settings.aiEndpoint, 
+         settings.aiApiKey,
+         userMsg.attachedImages || [],
+         modelStyle
+      );
+    }
+  };
+
   const handleCaptureScreen = async () => {
     setIsAttachmentMenuOpen(false);
     if ((window as any).electronAPI) {
@@ -727,6 +863,7 @@ export default function Assistant(props: AssistantProps) {
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
+                        pre: ({ children }: any) => <>{children}</>,
                         a({ node, className, children, href, ...props }: any) {
                           return (
                             <a 
@@ -746,27 +883,19 @@ export default function Assistant(props: AssistantProps) {
                         },
                         code({node, inline, className, children, ...props}: any) {
                           const match = /language-(\w+)/.exec(className || '')
-                          return !inline && match ? (
-                            <div className="rounded-lg overflow-hidden my-3 border border-black/10 dark:border-white/10 shadow-sm">
-                              <div className="bg-[#2d2d2d] px-3 py-1.5 flex justify-between items-center text-xs text-zinc-400">
-                                <span>{match[1]}</span>
-                                <button className="hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText(String(children))}><Copy size={14} /></button>
-                              </div>
-                              <SyntaxHighlighter
-                                {...props}
-                                style={vscDarkPlus as any}
-                                language={match[1]}
-                                PreTag="div"
-                                customStyle={{ margin: 0, borderRadius: 0, fontSize: '13px' }}
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            </div>
+                          const rawString = String(children).replace(/\n$/, '');
+                          const isInline = !match && !rawString.includes('\n');
+                          
+                          return !isInline ? (
+                            <CodeBlock 
+                              language={match ? match[1] : 'code'} 
+                              value={rawString} 
+                            />
                           ) : (
                             <code {...props} className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-[0.9em] font-mono">
                               {children}
                             </code>
-                          )
+                          );
                         }
                       }}
                     >
@@ -778,23 +907,35 @@ export default function Assistant(props: AssistantProps) {
                 
                 {msg.role === 'assistant' && (
                   <div className="flex items-center gap-3 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <div className="flex items-center gap-1">
-                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Copy">
-                          <Copy size={13} />
-                       </button>
-                       {settings.aiTtsEnabled && (
-                         <button 
-                           onClick={() => handleReadAloud(msg.content)}
-                           className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" 
-                           title="Read Aloud"
-                         >
-                            <Volume2 size={14} />
-                         </button>
-                       )}
-                       <button className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" title="Regenerate">
-                          <RotateCcw size={13} />
-                       </button>
-                     </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleMessageCopy(msg.id, msg.content)}
+                          className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all flex items-center gap-1 cursor-pointer" 
+                          title="Copy"
+                        >
+                          {copiedMessageId === msg.id ? (
+                            <Check size={13} className="text-green-500 animate-in fade-in zoom-in duration-200" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                        {settings.aiTtsEnabled && (
+                          <button 
+                            onClick={() => handleReadAloud(msg.content)}
+                            className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all" 
+                            title="Read Aloud"
+                          >
+                             <Volume2 size={14} />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleRegenerate(msg.id)}
+                          className="p-1.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-md transition-all cursor-pointer" 
+                          title="Regenerate"
+                        >
+                           <RotateCcw size={13} />
+                        </button>
+                      </div>
                      {msg.usage && (
                        <span className="text-[10px] text-[var(--theme-text)] opacity-35 font-mono select-none">
                          Tokens: {msg.usage.promptTokens} in / {msg.usage.completionTokens} out

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog, desktopCapturer, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, session, screen, Tray, Menu, nativeImage, shell, globalShortcut, dialog, desktopCapturer, safeStorage, clipboard } from 'electron';
 import type { WebContents, Session } from 'electron';
 import { Store } from 'electron-datastore';
 import { Ollama } from 'ollama';
@@ -247,6 +247,12 @@ function setupShortcutHandlers(webContents: WebContents) {
       
       // Standard Browser actions
       switch (input.key.toLowerCase()) {
+        case 'a':
+          if (shift) {
+            win?.webContents.send('window-shortcut', 'open-assistant');
+            event.preventDefault();
+          }
+          break;
         case 'n':
           createWindow(true); // Open new browser window as secondary
           event.preventDefault();
@@ -812,6 +818,10 @@ ipcMain.on('set-auto-hide', (event, enabled) => {
 });
 
 // Updates Handlers
+ipcMain.handle('copy-text', async (_event, text: string) => {
+  clipboard.writeText(text);
+  return true;
+});
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.on('check-for-updates', (event) => {
   if (app.isPackaged) {

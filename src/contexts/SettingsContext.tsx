@@ -70,6 +70,7 @@ const translations = {
     'shortcuts.key.specificTab': 'Switch to a specific tab',
     'shortcuts.key.closeTab': 'Close current tab',
     'shortcuts.key.home': 'Go to Home',
+    'shortcuts.key.assistant': 'Open AI Assistant',
     'shortcuts.key.back': 'Back',
     'shortcuts.key.forward': 'Forward',
     'shortcuts.key.zoomIn': 'Zoom in',
@@ -205,6 +206,7 @@ const translations = {
     'shortcuts.key.specificTab': 'Belirli bir sekmeye geç',
     'shortcuts.key.closeTab': 'Mevcut sekmeyi kapat',
     'shortcuts.key.home': 'Ana Sayfaya Git',
+    'shortcuts.key.assistant': 'Yapay Zeka Asistanını Aç',
     'shortcuts.key.back': 'Geri',
     'shortcuts.key.forward': 'İleri',
     'shortcuts.key.zoomIn': 'Yakınlaştır',
@@ -338,6 +340,7 @@ const translations = {
     'shortcuts.key.specificTab': 'Zu einem bestimmten Tab wechseln',
     'shortcuts.key.closeTab': 'Aktuellen Tab schließen',
     'shortcuts.key.home': 'Zur Startseite',
+    'shortcuts.key.assistant': 'KI-Assistent öffnen',
     'shortcuts.key.back': 'Zurück',
     'shortcuts.key.forward': 'Vorwärts',
     'shortcuts.key.zoomIn': 'Vergrößern',
@@ -464,6 +467,8 @@ export interface SettingsState {
   aiEnabled: boolean;
   aiTtsEnabled: boolean;
   dragRegionHeight: number;
+  assistantZoom: number;
+  settingsZoom: number;
 }
 
 const defaultSettings: SettingsState = {
@@ -502,6 +507,8 @@ const defaultSettings: SettingsState = {
   aiEnabled: true,
   aiTtsEnabled: false,
   dragRegionHeight: 40,
+  assistantZoom: 1.0,
+  settingsZoom: 1.0,
 };
 
 interface SettingsContextType {

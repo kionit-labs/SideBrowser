@@ -212,6 +212,9 @@ export default function App() {
           case 'home':
             setView('home');
             break;
+          case 'open-assistant':
+            setView('assistant');
+            break;
           case 'toggle-sidebar':
             setIsSidebarHidden(!isSidebarHidden);
             break;
@@ -234,9 +237,43 @@ export default function App() {
             break;
           }
           case 'reload': activeBrowser?.reload(); break;
-          case 'zoom-in': activeBrowser?.zoomIn(); break;
-          case 'zoom-out': activeBrowser?.zoomOut(); break;
-          case 'zoom-reset': activeBrowser?.zoomReset(); break;
+          case 'zoom-in': {
+            const currentView = stateRef.current.view;
+            if (currentView === 'assistant') {
+              const newZoom = Math.min((stateRef.current.settings.assistantZoom || 1.0) + 0.1, 1.5);
+              updateSetting('assistantZoom', parseFloat(newZoom.toFixed(2)));
+            } else if (currentView === 'settings') {
+              const newZoom = Math.min((stateRef.current.settings.settingsZoom || 1.0) + 0.1, 1.5);
+              updateSetting('settingsZoom', parseFloat(newZoom.toFixed(2)));
+            } else {
+              activeBrowser?.zoomIn();
+            }
+            break;
+          }
+          case 'zoom-out': {
+            const currentView = stateRef.current.view;
+            if (currentView === 'assistant') {
+              const newZoom = Math.max((stateRef.current.settings.assistantZoom || 1.0) - 0.1, 0.7);
+              updateSetting('assistantZoom', parseFloat(newZoom.toFixed(2)));
+            } else if (currentView === 'settings') {
+              const newZoom = Math.max((stateRef.current.settings.settingsZoom || 1.0) - 0.1, 0.7);
+              updateSetting('settingsZoom', parseFloat(newZoom.toFixed(2)));
+            } else {
+              activeBrowser?.zoomOut();
+            }
+            break;
+          }
+          case 'zoom-reset': {
+            const currentView = stateRef.current.view;
+            if (currentView === 'assistant') {
+              updateSetting('assistantZoom', 1.0);
+            } else if (currentView === 'settings') {
+              updateSetting('settingsZoom', 1.0);
+            } else {
+              activeBrowser?.zoomReset();
+            }
+            break;
+          }
           case 'devtools': activeBrowser?.openDevTools(); break;
           case 'go-back': activeBrowser?.goBack(); break;
           case 'go-forward': activeBrowser?.goForward(); break;
@@ -499,7 +536,9 @@ export default function App() {
           </div>
         )}
         {view === 'settings' && (
-          <Settings />
+          <div style={{ zoom: settings.settingsZoom || 1 }} className="w-full h-full flex flex-col overflow-hidden">
+            <Settings />
+          </div>
         )}
         
         {view === 'home' && (
@@ -507,21 +546,23 @@ export default function App() {
         )}
 
         {view === 'assistant' && (
-          <Assistant 
-            onNavigate={(url) => {
-              if (url) {
-                let finalUrl = url;
-                if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
-                handleNavigate(finalUrl);
-              }
-            }} 
-            attachedImages={assistantAttachedImages}
-            setAttachedImages={setAssistantAttachedImages}
-            attachedText={assistantAttachedText}
-            setAttachedText={setAssistantAttachedText}
-            input={assistantInput}
-            setInput={setAssistantInput}
-          />
+          <div style={{ zoom: settings.assistantZoom || 1 }} className="w-full h-full flex flex-col overflow-hidden">
+            <Assistant 
+              onNavigate={(url) => {
+                if (url) {
+                  let finalUrl = url;
+                  if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
+                  handleNavigate(finalUrl);
+                }
+              }} 
+              attachedImages={assistantAttachedImages}
+              setAttachedImages={setAssistantAttachedImages}
+              attachedText={assistantAttachedText}
+              setAttachedText={setAssistantAttachedText}
+              input={assistantInput}
+              setInput={setAssistantInput}
+            />
+          </div>
         )}
 
         <div className={`flex-1 w-full h-full p-0 m-0 bg-transparent ${view === 'browser' ? 'block' : 'hidden'}`}>

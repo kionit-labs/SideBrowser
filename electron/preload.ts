@@ -56,4 +56,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiExecuteAutomation: (command: any) => ipcRenderer.invoke('ai:execute-automation', command),
   aiGetAvailableModels: (provider: string, endpoint: string) => ipcRenderer.invoke('ai:get-available-models', provider, endpoint),
   aiGetProviderBalance: (provider: string, endpoint: string) => ipcRenderer.invoke('ai:get-provider-balance', provider, endpoint),
+  copyText: (text: string) => ipcRenderer.invoke('copy-text', text),
 });

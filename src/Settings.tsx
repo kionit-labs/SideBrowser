@@ -779,6 +779,7 @@ export default function Settings() {
                       [t('shortcuts.key.specificTab'), `${ctrl} + 1~9`],
                       [t('shortcuts.key.closeTab'), `${ctrl} + W`],
                       [t('shortcuts.key.home'), `${ctrl} + T`],
+                      [t('shortcuts.key.assistant'), `${ctrl} + Shift + A`],
                       [t('shortcuts.key.back'), `${ctrl} + ←`],
                       [t('shortcuts.key.forward'), `${ctrl} + →`],
                       [t('shortcuts.key.zoomIn'), `${ctrl} + +`],
